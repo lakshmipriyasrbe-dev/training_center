@@ -1,0 +1,70 @@
+CREATE TABLE `tc_staff` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  `staff_id` mediumtext DEFAULT NULL,
+  `staff_name` mediumtext DEFAULT NULL,
+  `staff_number` mediumtext DEFAULT NULL,
+  `role_id` int(11) DEFAULT NULL,
+  `course_id` mediumtext DEFAULT NULL,
+  `salary` decimal(10,2) DEFAULT NULL,
+  `username` mediumtext DEFAULT NULL,
+  `password` mediumtext DEFAULT NULL,
+  `address` mediumtext DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE `tc_enrollment` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  `enrollment_id` mediumtext DEFAULT NULL,
+  `student_id` mediumtext DEFAULT NULL,
+  `student_name` mediumtext DEFAULT NULL,
+  `father_spouse_name` mediumtext DEFAULT NULL,
+  `address` mediumtext DEFAULT NULL,
+  `mobile_number` mediumtext DEFAULT NULL,
+  `parent_contact_no` mediumtext DEFAULT NULL,
+  `course_id` mediumtext DEFAULT NULL,
+  `duration` mediumtext DEFAULT NULL,
+  `from_time` mediumtext DEFAULT NULL,
+  `to_time` mediumtext DEFAULT NULL,
+  `staff_id` mediumtext DEFAULT NULL,
+  `fees_type` mediumtext DEFAULT NULL,
+  `fees_amount` decimal(10,2) DEFAULT NULL,
+  `paid_amount` decimal(10,2) DEFAULT NULL,
+  `balance_amount` decimal(10,2) DEFAULT NULL,
+  `dob` date DEFAULT NULL,
+  `doj` date DEFAULT NULL,
+  `blood_group` mediumtext DEFAULT NULL,
+  `candidate_photo` mediumtext DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE `tc_payment_mode` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  `payment_mode_id` mediumtext DEFAULT NULL,
+  `payment_mode_name` mediumtext DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE `tc_bank` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  `bank_id` mediumtext DEFAULT NULL,
+  `bank_name` mediumtext DEFAULT NULL,
+  `account_name` mediumtext DEFAULT NULL,
+  `account_number` mediumtext DEFAULT NULL,
+  `ifsc_code` mediumtext DEFAULT NULL,
+  `payment_modes` mediumtext DEFAULT NULL,
+  `branch` mediumtext DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
