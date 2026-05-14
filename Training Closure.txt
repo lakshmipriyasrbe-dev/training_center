@@ -1,0 +1,102 @@
+Training Closure 
+
+form fields are: 
+
+Closure date, course_type(training/internship), student_id, certificate got/not
+
+Closure date - future date not allowed. 
+if course_type as training => training students from training table fetch and display in student select box(student_id)
+if course_type as internship => internship students from internship table fetch and display in student select box(student_id)
+certificate got/not => checkbox => if got mean ON => value saved as 1, NOt mean OFF => value saved as 2. 
+
+when i selected the student from student select box(either from training/internship)
+bottom of student select box i need one link as get student details. when i click that, student details (like name, course joined, trianer, course joining date like that.) in one modal. 
+
+1)my training center ui was not responsive. need my project ui repsonsive check. 
+2) sidebar background color change like skyblue/lightbrown. 
+check image. can you change my sidebar like the image. if not tell me. 
+while click company_details and dashboard. the sidebar width was high. for other menu it some what small. check that also.
+
+need receipt.php, receipt_action.php
+fields 
+1) receipt_date => default today date. future date not allowed. 
+
+2) course_type => training, internship. 
+3) Students - training mean => students are fetch from enrollment TABLE
+internship => students are fetch from enrollment_internship TABLE
+
+4) description => address area (not mandatory)
+
+5) payment_mode => fetch from payment mode TABLE
+if payment mode linked with bank table, need to ask which bank otherwise not ask bank selection 6(bank dropdown)
+7) amount. 
+
+one may give multiple mode of payment like cash 1000, gpay axis 1000 like that, 
+ so, payment_mode, bank, amount was in array. imploded this was stored corresponding fields of payment table.  so, i need table like below inside form itself.
+s.no | payment_mode | bank | amount
+                  total_amount = sum(amount)
+
+after that submit
+
+atleast one mode of payment should give either cash, or availble any one of them. 
+
+i have already have the payment table. 
+
+Attendance screen 
+attendance.php
+attendance_action.php
+for admin mark attendance for staff 
+fields 
+attendance_date future date not allowed -  
+default all staff need to fetch like table check my image. 
+if checked mean the staff was FN present and AN absent like that. default put checked. if i unchecked mark as absent 
+
+need db fields as
+id, created_date_time, updated_date_time, attendance_id, attendance_date, staff_id, staff_name, staff_number, staff_role, fn_present, an_present, present_code, deleted. 
+
+fn_present => P as present, A as absent. 
+an_present => P as present, A as absent. 
+present_code  as fn_present.an_present like PP for fullpresent, PA as afternoon absent,, AP as fn absent, AA as full day absent. 
+
+++++++++++++++
+Payroll Screen
+++++++++++++++
+
+payoll.php
+payroll_action.php
+
+i need 
+month dropdown default this year 2026. (dynamically bring the current year), date(based on month it shown. if jan mean 31, feb mean 28.)
+
+default of all staff bring into the table on loading itself
+
+table refer image. 
+
+monthly salary fetched from staff table salary
+
+per day salary was monthly_salary/date(either 31, 30 28 based on month already we have)
+
+maximum CL (causual leave) was 1. LOP as per our take. here one cdn need to check if 2days LOP mean 1 day as taken as CL and 1 day as taken LOP (similarly 3 mean 1 CL and 2 LOP like that)
+
+based on LOP days deduction was calculated if per day salary 300 and LOP mean 2 mean => total_deduction as 600
+
+incentive this month total_refernces of the staff (from enrollment and enrollment_internship table referred_staff_id). per 1 reference 1000 was added. (if the staff have 3 reference (1 from enrollment and 2 from enrollment_internship)) mean total amount of incentive as 3000 (we need mention how many reference here);
+
+so, total_salary get was (monthly_salary - total_deduction + incentive)
+
+monthly_salary not editable. Based on LOP and Cl alone dynamically total_salary changed. incentive also not editable. 
+
+if i give pay for jan 2026 mean, again i am not able to pay again. (restriction); default current month current year loaded. 
+
+CRUD (here update not allowed) operation need. 
+
+give table db inside of db_changes.txt. follow my table structure and php flow structure. 
+
+NOTE: if able to link with attendance of staff from attendance for no of days attendance, try it otherwise no need. 
+
+
+
+
+
+                                
+

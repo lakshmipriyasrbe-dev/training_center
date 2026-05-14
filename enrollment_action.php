@@ -2,7 +2,139 @@
 if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 $action = $_POST['action'] ?? '';
 
-   $student_id = ""; $student_name = ""; $father_spouse_name = ""; $address = ""; $mobile_number = ""; $parent_contact_no = ""; $course_id = ""; $duration = ""; $from_time = ""; $to_time = ""; $staff_id = ""; $fees_type = ""; $fees_amount = ""; $paid_amount = "0"; $balance_amount = ""; $dob = ""; $doj = ""; $blood_group = ""; $candidate_photo = "";
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
+    $student_id = $bf->sanitize($_POST['student_id'] ?? '');
+    $student_name = $bf->sanitize($_POST['student_name'] ?? '');
+    $father_spouse_name = $bf->sanitize($_POST['father_spouse_name'] ?? '');
+    $address = $bf->sanitize($_POST['address'] ?? '');
+    $mobile_number = $bf->sanitize($_POST['mobile_number'] ?? '');
+    $parent_contact_no = $bf->sanitize($_POST['parent_contact_no'] ?? '');
+    $course_id = $bf->sanitize($_POST['course_id'] ?? '');
+    $duration = $bf->sanitize($_POST['duration'] ?? '');
+    $from_time = $bf->sanitize($_POST['from_time'] ?? '');
+    $to_time = $bf->sanitize($_POST['to_time'] ?? '');
+    $staff_id = $bf->sanitize($_POST['staff_id'] ?? '');
+    $fees_type = $bf->sanitize($_POST['fees_type'] ?? '');
+    $fees_amount = $bf->sanitize($_POST['fees_amount'] ?? '');
+    $paid_amount = $bf->sanitize($_POST['paid_amount'] ?? '0');
+    $balance_amount = $bf->sanitize($_POST['balance_amount'] ?? '0');
+    $dob = $bf->sanitize($_POST['dob'] ?? '');
+    $doj = $bf->sanitize($_POST['doj'] ?? '');
+    $lead_source = $bf->sanitize($_POST['lead_source'] ?? '');
+    $referred_staff_id = $bf->sanitize($_POST['referred_staff_id'] ?? '');
+    $blood_group = $bf->sanitize($_POST['blood_group'] ?? '');
+    $view_enrollment_id = $bf->sanitize($_POST['view_enrollment_id'] ?? '');
+    
+    $errors = [];
+    $res = $valid->valid_name($student_name, 'Student Name');
+    if ($res) $errors['student_name'] = $res;
+
+    $res = $valid->valid_name($father_spouse_name, 'Father / Spouse Name');
+    if ($res) $errors['father_spouse_name'] = $res;
+
+    $res = $valid->common_validation($address, 'Address', 'text');
+    if ($res) $errors['address'] = $res;
+
+    $res = $valid->valid_mobile($mobile_number, 'Student Contact No');
+    if ($res) $errors['mobile_number'] = $res;
+
+    $res = $valid->common_validation($course_id, 'Course Name', 'select');
+    if ($res) $errors['course_id'] = $res;
+
+    $res = $valid->common_validation($fees_type, 'Fees Term', 'radio');
+    if ($res) $errors['fees_type'] = $res;
+
+    $res = $valid->common_validation($fees_amount, 'Fees Amount', 'text');
+    if ($res) $errors['fees_amount'] = $res;
+
+    if(!empty($lead_source)) {
+        $res = $valid->common_validation($lead_source, 'Lead Source', 'select');
+        if ($res) $errors['lead_source'] = $res;
+
+        if($lead_source === 'reference') {
+            $res = $valid->common_validation($referred_staff_id, 'Referred Staff', 'select');
+            if ($res) $errors['referred_staff_id'] = $res;
+        }
+    }
+
+    $candidate_photo = '';
+    if (isset($_FILES['candidate_photo']['name']) && !empty($_FILES['candidate_photo']['name'])) {
+        $file_name = $_FILES['candidate_photo']['name'];
+        $file_tmp = $_FILES['candidate_photo']['tmp_name'];
+        $ext = pathinfo($file_name, PATHINFO_EXTENSION);
+        $new_name = time() . '.' . $ext;
+        
+        if (!is_dir('uploads')) {
+            mkdir('uploads', 0777, true);
+        }
+        
+        if (move_uploaded_file($file_tmp, "uploads/" . $new_name)) {
+            $candidate_photo = $new_name;
+        }
+    }
+
+    if (empty($errors)) {
+        if (!empty($student_id)) {
+            $student_id = $bf->encode_decode('encrypt', $student_id);
+        }
+
+        $data = [
+            'student_id' => $student_id,
+            'student_name' => $student_name,
+            'father_spouse_name' => $father_spouse_name,
+            'address' => $address,
+            'mobile_number' => $mobile_number,
+            'parent_contact_no' => $parent_contact_no,
+            'course_id' => $course_id,
+            'duration' => $duration,
+            'from_time' => $from_time,
+            'to_time' => $to_time,
+            'staff_id' => $staff_id,
+            'fees_type' => $fees_type,
+            'fees_amount' => $fees_amount,
+            'paid_amount' => $paid_amount,
+            'balance_amount' => $balance_amount,
+            'dob' => $dob,
+            'doj' => $doj,
+            'blood_group' => $blood_group,
+            'updated_date_time' => date('Y-m-d H:i:s'),
+            'lead_source' => $lead_source,
+            'referred_staff_id' => $referred_staff_id
+        ];
+        
+        if (!empty($candidate_photo)) {
+            $data['candidate_photo'] = $candidate_photo;
+        }
+
+        header('Content-Type: application/json');
+        if (empty($view_enrollment_id)) {
+            $data['created_date_time'] = date('Y-m-d H:i:s');
+            $bf->InsertSQL(
+                $GLOBALS['enrollment_table'], 
+                $data, 
+                'enrollment_id', 
+                '', 
+                'ADD ENROLLMENT'
+            );
+            echo json_encode(['status' => 'success', 'message' => 'Enrollment added successfully']);
+        } else {
+            $bf->UpdateSQL(
+                $GLOBALS['enrollment_table'], 
+                $data, 
+                "enrollment_id = :id", 
+                [':id' => $view_enrollment_id]
+            );
+            echo json_encode(['status' => 'success', 'message' => 'Enrollment updated successfully']);
+        }
+        exit;
+    } else {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'errors' => $errors]);
+        exit;
+    }
+}
+
+   $student_id = ""; $student_name = ""; $father_spouse_name = ""; $address = ""; $mobile_number = ""; $parent_contact_no = ""; $course_id = ""; $duration = ""; $from_time = ""; $to_time = ""; $staff_id = ""; $fees_type = ""; $fees_amount = ""; $paid_amount = "0"; $balance_amount = ""; $dob = ""; $doj = ""; $blood_group = ""; $candidate_photo = ""; $lead_source = ""; $referred_staff_id = "";
 
     if(isset($_REQUEST['view_enrollment_id'])) {
 
@@ -31,6 +163,12 @@ $action = $_POST['action'] ?? '';
 
                 if(!empty($data['address'])) {
                     $address = $data['address'];
+                }
+                if(!empty($data['lead_source'])) {
+                    $lead_source = $data['lead_source'];
+                }
+                if(!empty($data['referred_staff_id'])) {
+                    $referred_staff_id = $data['referred_staff_id'];
                 }
 
                 if(!empty($data['mobile_number'])) {
@@ -96,26 +234,7 @@ $action = $_POST['action'] ?? '';
         }
     
         if (empty($view_enrollment_id)) {
-            // Calculate next student_id for display
-            $current_month = (int)date('m');
-            $current_year = (int)date('Y');
-            if ($current_month >= 4) {
-                $fy_start_year = $current_year;
-                $fy_end_year = $current_year + 1;
-            } else {
-                $fy_start_year = $current_year - 1;
-                $fy_end_year = $current_year;
-            }
-            $fy_suffix = substr($fy_start_year, -2) . '-' . substr($fy_end_year, -2);
-            
-            $fy_start_date = $fy_start_year . "-04-01 00:00:00";
-            $fy_end_date = $fy_end_year . "-03-31 23:59:59";
-            
-            $stmt = $bf->con->prepare("SELECT COUNT(id) FROM " . $GLOBALS['enrollment_table'] . " WHERE created_date_time >= :start AND created_date_time <= :end");
-            $stmt->execute([':start' => $fy_start_date, ':end' => $fy_end_date]);
-            $count = $stmt->fetchColumn();
-            $next_number = $count + 1;
-            $student_id = "EN" . str_pad($next_number, 3, "0", STR_PAD_LEFT) . "/" . $fy_suffix;
+            $student_id = $bf->automate_number($GLOBALS['enrollment_table'],'student_id', '', '');
         }
         ?>
 
@@ -330,7 +449,56 @@ $action = $_POST['action'] ?? '';
 
                         </select>
 
-                        <span id="error-staff_id" class="error-msg"></span>
+                        <span id="error-assigned_staff" class="error-msg"></span>
+                    </div>
+
+                    <div class="form-group col-4">
+                        <label>How did you hear about us? </label>
+
+                        <select name="lead_source" id="lead_source" class="form-input">
+                            <option value="">Select</option>
+                            <option value="facebook" <?php if(!empty($lead_source) && $lead_source == "facebook") { ?> selected <?php } ?>>Facebook</option>
+                            <option value="instagram" <?php if(!empty($lead_source) && $lead_source == "instagram") { ?> selected <?php } ?>>Instagram</option>
+                            <option value="website" <?php if(!empty($lead_source) && $lead_source == "website") { ?> selected <?php } ?>>Website</option>
+                            <option value="reference" <?php if(!empty($lead_source) && $lead_source == "reference") { ?> selected <?php } ?>>Reference</option>
+                        </select>
+
+                        <span id="error-lead_source" class="error-msg"></span>
+                    </div>
+
+                    <div class="form-group col-4 <?php if(empty($lead_source) || $lead_source !== 'reference') { ?> d-none <?php } ?>" id="referred_staff_group">
+                        <label>Referred Staff</label>
+
+                        <select
+                            name="referred_staff_id"
+                            class="form-input"
+                        >
+
+                            <option value="">Select</option>
+
+                            <?php
+                                $staff_list = $bf->getTableRecords($GLOBALS['staff_table']);
+                                if(!empty($staff_list)) {
+                                    foreach($staff_list as $staff) {
+                            ?>
+
+                            <option
+                                value="<?php echo $staff['staff_id']; ?>"
+                                <?php if(!empty($referred_staff_id) && $referred_staff_id == $staff['staff_id']) { ?>
+                                    selected
+                                <?php } ?>
+                            >
+                                <?php echo $staff['staff_name']; ?>
+                            </option>
+
+                            <?php
+                                    }
+                                }
+                            ?>
+
+                        </select>
+
+                        <span id="error-referred_staff_id" class="error-msg"></span>
                     </div>
 
                     <div class="form-group col-12">
@@ -522,7 +690,8 @@ $action = $_POST['action'] ?? '';
 
                 </div>
                 <script>
-                   function calculateBalance() {
+
+                    function calculateBalance() {
 
                         var feesAmount = parseFloat(document.querySelector('input[name="fees_amount"]').value) || 0;
 
@@ -591,6 +760,21 @@ $action = $_POST['action'] ?? '';
 
                         calculateBalance();
                     });
+
+                    if(document.getElementById('lead_source')) {
+
+                        document.getElementById('lead_source').addEventListener('change', function() {
+
+                            var referredStaffGroup = document.getElementById('referred_staff_group');
+
+                            if(this.value === 'reference') {
+                                referredStaffGroup.classList.remove('d-none');
+                            } else {
+                                referredStaffGroup.classList.add('d-none');
+                                document.querySelector('select[name="referred_staff_id"]').value = '';
+                            }
+                        });
+                    }
                 </script>
 
             </form>
@@ -601,185 +785,94 @@ $action = $_POST['action'] ?? '';
 
 <?php }
 
-if (isset($_POST['student_name'])) {
-    $student_name = $bf->sanitize($_POST['student_name'] ?? '');
-    $father_spouse_name = $bf->sanitize($_POST['father_spouse_name'] ?? '');
-    $address = $bf->sanitize($_POST['address'] ?? '');
-    $mobile_number = $bf->sanitize($_POST['mobile_number'] ?? '');
-    $parent_contact_no = $bf->sanitize($_POST['parent_contact_no'] ?? '');
-    $course_id = $bf->sanitize($_POST['course_id'] ?? '');
-    $duration = $bf->sanitize($_POST['duration'] ?? '');
-    $from_time = $bf->sanitize($_POST['from_time'] ?? '');
-    $to_time = $bf->sanitize($_POST['to_time'] ?? '');
-    $staff_id = $bf->sanitize($_POST['staff_id'] ?? '');
-    $fees_type = $bf->sanitize($_POST['fees_type'] ?? '');
-    $fees_amount = $bf->sanitize($_POST['fees_amount'] ?? '');
-    $paid_amount = $bf->sanitize($_POST['paid_amount'] ?? '0');
-    $balance_amount = $bf->sanitize($_POST['balance_amount'] ?? '0');
-    $dob = $bf->sanitize($_POST['dob'] ?? '');
-    $doj = $bf->sanitize($_POST['doj'] ?? '');
-    $blood_group = $bf->sanitize($_POST['blood_group'] ?? '');
-    $view_enrollment_id = $bf->sanitize($_POST['view_enrollment_id'] ?? '');
-    
-    $errors = [];
-    $res = $valid->valid_name($student_name, 'Student Name');
-    if ($res) $errors['student_name'] = $res;
+if ($action == 'list') {
+    $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
+    $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 10;
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+    $start = ($page - 1) * $limit;
 
-    $res = $valid->valid_name($father_spouse_name, 'Father / Spouse Name');
-    if ($res) $errors['father_spouse_name'] = $res;
+    $result = $bf->getEnrollmentList($GLOBALS['enrollment_table'], $start, $limit, $search);
+    $enrollments = $result['data'];
+    $total_records = $result['total_records'];
+    $total_pages = ceil($total_records / $limit);
 
-    $res = $valid->common_validation($address, 'Address', 'text');
-    if ($res) $errors['address'] = $res;
-
-    $res = $valid->valid_mobile($mobile_number, 'Student Contact No');
-    if ($res) $errors['mobile_number'] = $res;
-
-    $res = $valid->common_validation($course_id, 'Course Name', 'select');
-    if ($res) $errors['course_id'] = $res;
-
-    $res = $valid->common_validation($fees_type, 'Fees Term', 'radio');
-    if ($res) $errors['fees_type'] = $res;
-
-    $res = $valid->common_validation($fees_amount, 'Fees Amount', 'text');
-    if ($res) $errors['fees_amount'] = $res;
-
-    // file upload for photo
-    $candidate_photo = '';
-    if (isset($_FILES['candidate_photo']['name']) && !empty($_FILES['candidate_photo']['name'])) {
-        $file_name = $_FILES['candidate_photo']['name'];
-        $file_tmp = $_FILES['candidate_photo']['tmp_name'];
-        $ext = pathinfo($file_name, PATHINFO_EXTENSION);
-        $new_name = time() . '.' . $ext;
-        
-        // ensure dir exists
-        if (!is_dir('uploads')) {
-            mkdir('uploads', 0777, true);
-        }
-        
-        if (move_uploaded_file($file_tmp, "uploads/" . $new_name)) {
-            $candidate_photo = $new_name;
-        }
-    }
-
-    if(empty($errors)) {
-        $data = [
-            'student_name' => $student_name,
-            'father_spouse_name' => $father_spouse_name,
-            'address' => $address,
-            'mobile_number' => $mobile_number,
-            'parent_contact_no' => $parent_contact_no,
-            'course_id' => $course_id,
-            'duration' => $duration,
-            'from_time' => $from_time,
-            'to_time' => $to_time,
-            'staff_id' => $staff_id,
-            'fees_type' => $fees_type,
-            'fees_amount' => $fees_amount,
-            'paid_amount' => $paid_amount,
-            'balance_amount' => $balance_amount,
-            'dob' => $dob,
-            'doj' => $doj,
-            'blood_group' => $blood_group,
-            'updated_date_time' => date('Y-m-d H:i:s')
-        ];
-        
-        if (!empty($candidate_photo)) {
-            $data['candidate_photo'] = $candidate_photo;
-        }
-
-        if(empty($view_enrollment_id)) {
-            $data['created_date_time'] = date('Y-m-d H:i:s');
-            $bf->InsertSQL(
-                $GLOBALS['enrollment_table'],
-                $data,
-                'enrollment_id',
-                'student_id',
-                'ADD ENROLLMENT'
-            );
-            echo json_encode(['status' => 'success', 'message' => 'Enrollment added successfully']);
-        } else {
-            $bf->UpdateSQL(
-                $GLOBALS['enrollment_table'],
-                $data,
-                "enrollment_id = :id",
-                [':id' => $view_enrollment_id]
-            );
-            echo json_encode(['status' => 'success', 'message' => 'Enrollment updated successfully']);
-        }
-        exit;
-    } else {
-        echo json_encode(['status' => 'error', 'errors' => $errors]);
-        exit;
-    }
-} 
-
-if (isset($action) &&  ($action == 'list')) {
-    $enrollments = $bf->getTableRecords($GLOBALS['enrollment_table'], 'deleted', 0);
-    if (empty($enrollments)) {
-        echo "<p>No enrollments found.</p>";
-    } else {
+    if (empty($enrollments)) { ?>
+        <div class="table-responsive">
+            <table><tr><td style="text-align:center">No enrollments found.</td></tr></table>
+        </div>
+    <?php } else {
         ?>
-
-        <table>
-
-            <tr>
-                <th>Student ID</th>
-                <th>Student Name</th>
-                <th>Mobile Number</th>
-                <th>Course Name</th>
-                <th>Action</th>
-            </tr>
-
-            <?php foreach ($enrollments as $u) { 
-                $course_name = '';
-                if(!empty($u['course_id'])) {
-                    $course_data = $bf->getTableRecords($GLOBALS['course_table'], 'course_id', $u['course_id']);
-                    if(!empty($course_data)) {
-                        $course_name = $course_data[0]['course_name'];
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sno</th>
+                        <th>Student ID</th>
+                        <th>Student Name</th>
+                        <th>Mobile Number</th>
+                        <th>Course Name</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php 
+                $sno = $start + 1;
+                foreach ($enrollments as $u) { 
+                    $course_name = '';
+                    if(!empty($u['course_id'])) {
+                        $course_data = $bf->getTableRecords($GLOBALS['course_table'], 'course_id', $u['course_id']);
+                        if(!empty($course_data)) {
+                            $course_name = $course_data[0]['course_name'];
+                        }
                     }
-                }
-            ?>
+                ?>
+                    <tr>
+                        <td><?php echo $sno++; ?></td>
+                        <td>
+                            <span style="color: var(--primary); font-weight: 600;">
+                                <?php echo $bf->encode_decode('decrypt', $u['student_id']); ?>
+                            </span>
+                        </td>
+                        <td><?php echo $u['student_name']; ?></td>
+                        <td><?php echo $u['mobile_number']; ?></td>
+                        <td><?php echo $course_name; ?></td>
+                        <td>
+                            <div style="display:flex; gap:0.5rem;">
+                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('enrollment', '<?php echo $u['enrollment_id']; ?>')">Edit</button>
+                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('enrollment', '<?php echo $u['id']; ?>')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div>
 
-                <tr>
-
-                    <td>
-                        <span style="color: var(--primary);">
-                            <?php echo $bf->encode_decode('decrypt', $u['student_id']); ?>
-                        </span>
-                    </td>
-
-                    <td>
-                        <?php echo $u['student_name']; ?>
-                    </td>
-
-                    <td>
-                        <?php echo $u['mobile_number']; ?>
-                    </td>
-
-                    <td>
-                        <?php echo $course_name; ?>
-                    </td>
-
-                    <td>
-                        <button class="btn-add" onclick="Javacript:ShowPage('enrollment', '<?php echo $u['enrollment_id']; ?>')">Edit</button>
-                        <button
-                            class="btn-add"
-                            style="background: #ef4444; font-size: 0.75rem;"
-                            onclick="deleteRecord('enrollment', '<?php echo $u['id']; ?>')"
-                        >
-                            Delete
-                        </button>
-
-                    </td>
-
-                </tr>
-
-            <?php } ?>
-
-        </table>
-
+        <div class="pagination-container">
+            <div class="pagination-info">
+                Showing <?php echo ($total_records > 0) ? $start + 1 : 0; ?> to <?php echo min($start + $limit, $total_records); ?> of <?php echo $total_records; ?> entries
+            </div>
+            <div class="pagination-buttons">
+                <button class="page-btn" <?php echo ($page <= 1) ? 'disabled' : ''; ?> onclick="loadData('enrollment', <?php echo $page - 1; ?>, $('#enrollment_limit').val(), $('#enrollment_search').val())">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <?php 
+                $start_page = max(1, $page - 2);
+                $end_page = min($total_pages, $start_page + 4);
+                if ($end_page - $start_page < 4) $start_page = max(1, $end_page - 4);
+                for ($i = $start_page; $i <= $end_page; $i++) { ?>
+                    <button class="page-btn <?php echo ($i == $page) ? 'active' : ''; ?>" onclick="loadData('enrollment', <?php echo $i; ?>, $('#enrollment_limit').val(), $('#enrollment_search').val())">
+                        <?php echo $i; ?>
+                    </button>
+                <?php } ?>
+                <button class="page-btn" <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?> onclick="loadData('enrollment', <?php echo $page + 1; ?>, $('#enrollment_limit').val(), $('#enrollment_search').val())">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     <?php
     }
+    exit;
 }
 
 if (isset($action) &&  ($action == 'delete')) {

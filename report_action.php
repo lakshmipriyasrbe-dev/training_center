@@ -32,7 +32,12 @@ if ($action == 'add') {
 }
 
 if ($action == 'list') {
-    $query = "SELECT r.*, u.name as user_name, u.role as user_role FROM " . $GLOBALS['report_table'] . " r 
+    $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
+    $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 10;
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+    $start = ($page - 1) * $limit;
+
+    $query = "FROM " . $GLOBALS['report_table'] . " r 
               JOIN " . $GLOBALS['user_table'] . " u ON r.user_id = u.id 
               WHERE r.deleted = :deleted";
     $params = [':deleted' => 0];
@@ -41,32 +46,78 @@ if ($action == 'list') {
         $query .= " AND r.user_id = :user_id";
         $params[':user_id'] = $user_id;
     }
-    
-    $query .= " ORDER BY r.report_date DESC";
 
-    $reports = $bf->getQueryRecords($query, $params);
-
-    if (empty($reports)) {
-        echo "<p style='color: var(--text-muted);'>No reports found.</p>";
-    } else {
-        echo "<table style='width: 100%; border-collapse: collapse;'>
-                <tr style='text-align: left; color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.1);'>
-                    <th style='padding: 1rem;'>Date</th>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Activity</th>
-                    <th>Hours</th>
-                </tr>";
-        foreach ($reports as $r) {
-            echo "<tr style='border-bottom: 1px solid rgba(255,255,255,0.05);'>
-                    <td style='padding: 1rem;'>" . $r['report_date'] . "</td>
-                    <td>" . $r['user_name'] . "</td>
-                    <td>" . ucfirst($r['user_role']) . "</td>
-                    <td style='max-width: 300px;'>" . nl2br($r['activity_details']) . "</td>
-                    <td>" . $r['hours_spent'] . "</td>
-                </tr>";
-        }
-        echo "</table>";
+    if (!empty($search)) {
+        $query .= " AND (u.name LIKE :search OR r.activity_details LIKE :search)";
+        $params[':search'] = "%$search%";
     }
+
+    // Get total count
+    $count_query = "SELECT COUNT(*) as total " . $query;
+    $total_records = $bf->getQueryRecords($count_query, $params)[0]['total'];
+    $total_pages = ceil($total_records / $limit);
+
+    // Get paginated data
+    $data_query = "SELECT r.*, u.name as user_name, u.role as user_role " . $query . " ORDER BY r.report_date DESC LIMIT $start, $limit";
+    $reports = $bf->getQueryRecords($data_query, $params);
+
+    if (empty($reports)) { ?>
+        <div class="table-responsive">
+            <table><tr><td style="text-align:center">No reports found.</td></tr></table>
+        </div>
+    <?php } else {
+        ?>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Activity</th>
+                        <th>Hours</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php 
+                foreach ($reports as $r) { 
+                ?>
+                    <tr>
+                        <td><?php echo date('d-m-Y', strtotime($r['report_date'])); ?></td>
+                        <td><strong style="color: var(--primary);"><?php echo $r['user_name']; ?></strong></td>
+                        <td><span class="status-badge" style="background: var(--primary-light); color: var(--primary);"><?php echo ucfirst($r['user_role']); ?></span></td>
+                        <td style="max-width: 300px; white-space: normal; line-height: 1.4;"><?php echo nl2br($r['activity_details']); ?></td>
+                        <td><?php echo $r['hours_spent']; ?> hrs</td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-container">
+            <div class="pagination-info">
+                Showing <?php echo ($total_records > 0) ? $start + 1 : 0; ?> to <?php echo min($start + $limit, $total_records); ?> of <?php echo $total_records; ?> entries
+            </div>
+            <div class="pagination-buttons">
+                <button class="page-btn" <?php echo ($page <= 1) ? 'disabled' : ''; ?> onclick="loadData('report', <?php echo $page - 1; ?>, $('#report_limit').val(), $('#report_search').val())">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <?php 
+                $start_page = max(1, $page - 2);
+                $end_page = min($total_pages, $start_page + 4);
+                if ($end_page - $start_page < 4) $start_page = max(1, $end_page - 4);
+                for ($i = $start_page; $i <= $end_page; $i++) { ?>
+                    <button class="page-btn <?php echo ($i == $page) ? 'active' : ''; ?>" onclick="loadData('report', <?php echo $i; ?>, $('#report_limit').val(), $('#report_search').val())">
+                        <?php echo $i; ?>
+                    </button>
+                <?php } ?>
+                <button class="page-btn" <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?> onclick="loadData('report', <?php echo $page + 1; ?>, $('#report_limit').val(), $('#report_search').val())">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    <?php
+    }
+    exit;
 }
 ?>

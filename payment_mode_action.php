@@ -163,31 +163,78 @@ if (isset($_REQUEST['action']) && ($action == 'delete')) {
     exit;
 }
 
-if (isset($action) && ($action == 'list')) {
-    $payment_modes = $bf->getTableRecords($GLOBALS['payment_mode_table'], 'deleted', 0);
-    $sno = 0;
-    if (empty($payment_modes)) {
-        echo "<p>No payment modes found.</p>";
-    } else { ?>
-        <table>
-            <tr>
-                <th>Sno</th>
-                <th>Payment Mode</th>
-                <th>Created At</th>
-                <th>Action</th>
-            </tr>
-            <?php foreach ($payment_modes as $u) { $sno++; ?>
-                <tr>
-                    <td><?php echo $sno; ?></td>
-                    <td><?php echo $u['payment_mode_name']; ?></td>
-                    <td><?php echo $u['created_date_time']; ?></td>
-                    <td>
-                        <button class="btn-add" onclick="Javacript:ShowPage('payment_mode', '<?php echo $u['payment_mode_id']; ?>')">Edit</button>
-                        <button class="btn-add" style="background: #ef4444;" onclick="deleteRecord('payment_mode', '<?php echo $u['payment_mode_id']; ?>')">Delete</button>
-                    </td>
-                </tr>
-            <?php } ?>
-        </table>
-    <?php }
+if ($action == 'list') {
+    $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
+    $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 10;
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+    $start = ($page - 1) * $limit;
+
+    $result = $bf->getTableList($GLOBALS['payment_mode_table'], ['payment_mode_name'], $start, $limit, $search);
+    $payment_modes = $result['data'];
+    $total_records = $result['total_records'];
+    $total_pages = ceil($total_records / $limit);
+
+    if (empty($payment_modes)) { ?>
+        <div class="table-responsive">
+            <table><tr><td style="text-align:center">No payment modes found.</td></tr></table>
+        </div>
+    <?php } else {
+        ?>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sno</th>
+                        <th>Payment Mode</th>
+                        <th>Created At</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php 
+                $sno = $start + 1;
+                foreach ($payment_modes as $u) { 
+                ?>
+                    <tr>
+                        <td><?php echo $sno++; ?></td>
+                        <td><span style="font-weight: 600; color: var(--primary);"><?php echo $u['payment_mode_name']; ?></span></td>
+                        <td><?php echo date('d-m-Y H:i', strtotime($u['created_date_time'])); ?></td>
+                        <td>
+                            <div style="display:flex; gap:0.5rem;">
+                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('payment_mode', '<?php echo $u['payment_mode_id']; ?>')">Edit</button>
+                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('payment_mode', '<?php echo $u['payment_mode_id']; ?>')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-container">
+            <div class="pagination-info">
+                Showing <?php echo ($total_records > 0) ? $start + 1 : 0; ?> to <?php echo min($start + $limit, $total_records); ?> of <?php echo $total_records; ?> entries
+            </div>
+            <div class="pagination-buttons">
+                <button class="page-btn" <?php echo ($page <= 1) ? 'disabled' : ''; ?> onclick="loadData('payment_mode', <?php echo $page - 1; ?>, $('#payment_mode_limit').val(), $('#payment_mode_search').val())">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <?php 
+                $start_page = max(1, $page - 2);
+                $end_page = min($total_pages, $start_page + 4);
+                if ($end_page - $start_page < 4) $start_page = max(1, $end_page - 4);
+                for ($i = $start_page; $i <= $end_page; $i++) { ?>
+                    <button class="page-btn <?php echo ($i == $page) ? 'active' : ''; ?>" onclick="loadData('payment_mode', <?php echo $i; ?>, $('#payment_mode_limit').val(), $('#payment_mode_search').val())">
+                        <?php echo $i; ?>
+                    </button>
+                <?php } ?>
+                <button class="page-btn" <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?> onclick="loadData('payment_mode', <?php echo $page + 1; ?>, $('#payment_mode_limit').val(), $('#payment_mode_search').val())">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    <?php
+    }
+    exit;
 }
 ?>

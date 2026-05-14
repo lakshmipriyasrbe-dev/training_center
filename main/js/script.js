@@ -149,11 +149,28 @@ function ShowPage(page, edit_id = '') {
     });
 }
 
-// function loadData(page_name) {
-//     $.get(page_name + '_action.php?action=list', function(data) {
-//         $('#' + page_name + '_list').html(data);
-//     });
-// }
+function loadData(page_name, page = 1, limit = 10, search = '') {
+    const listDiv = $('#' + page_name + '_list');
+    // Keep loading state minimal but visible
+    listDiv.css('opacity', '0.6');
+
+    $.ajax({
+        url: page_name + '_action.php',
+        type: 'POST',
+        data: {
+            action: 'list',
+            page: page,
+            limit: limit,
+            search: search
+        },
+        success: function(data) {
+            listDiv.html(data).css('opacity', '1');
+        },
+        error: function() {
+            listDiv.html('<div style="text-align:center; color:red; padding:2rem;">Failed to load data.</div>').css('opacity', '1');
+        }
+    });
+}
 
 function deleteRecord(page_name, id) {
 

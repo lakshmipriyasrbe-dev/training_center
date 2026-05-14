@@ -101,20 +101,61 @@
             return $stmt->fetchColumn() ?: 0;
         }
 
+        // public function automate_number($table, $field, $last_id, $current_id) {
+        //     $prefixes = [
+        //         $GLOBALS['user_table'] => "USR",
+        //         $GLOBALS['task_table'] => "TSK",
+        //         $GLOBALS['report_table'] => "REP",
+        //         $GLOBALS['enrollment_table'] => "EN"
+        //     ];
+            
+        //     $prefix = $prefixes[$table] ?? "TC";
+            
+        //     // Calculate Financial Year
+        //     $current_month = (int)date('m');
+        //     $current_year = (int)date('Y');
+            
+        //     if ($current_month >= 4) {
+        //         $fy_start_year = $current_year;
+        //         $fy_end_year = $current_year + 1;
+        //     } else {
+        //         $fy_start_year = $current_year - 1;
+        //         $fy_end_year = $current_year;
+        //     }
+            
+        //     $fy_suffix = substr($fy_start_year, -2) . '-' . substr($fy_end_year, -2);
+            
+        //     // We need to count how many records exist for this FY
+        //     $fy_start_date = $fy_start_year . "-04-01 00:00:00";
+        //     $fy_end_date = $fy_end_year . "-03-31 23:59:59";
+            
+        //     $stmt = $this->con->prepare("SELECT COUNT(id) FROM $table WHERE created_date_time >= :start AND created_date_time <= :end");
+        //     $stmt->execute([':start' => $fy_start_date, ':end' => $fy_end_date]);
+        //     $count = $stmt->fetchColumn();
+            
+        //     $next_number = $count > 0 ? $count : 1;
+            
+        //     return $prefix . str_pad($next_number, 3, "0", STR_PAD_LEFT) . "/" . $fy_suffix;
+        // }
         public function automate_number($table, $field, $last_id, $current_id) {
+
             $prefixes = [
                 $GLOBALS['user_table'] => "USR",
                 $GLOBALS['task_table'] => "TSK",
                 $GLOBALS['report_table'] => "REP",
-                $GLOBALS['enrollment_table'] => "EN"
+                $GLOBALS['enrollment_table'] => "ENT",
+                $GLOBALS['enrollment_internship_table'] => "ENI",
+                $GLOBALS['attendance_table'] => "ATT",
+                $GLOBALS['payment_table'] => "REC",
+                $GLOBALS['payroll_table'] => "PR"
             ];
-            
-            $prefix = $prefixes[$table] ?? "TC";
-            
-            // Calculate Financial Year
-            $current_month = (int)date('m');
-            $current_year = (int)date('Y');
-            
+
+            $prefix = $prefixes[$table] ?? "";
+
+            // Financial Year
+            $current_month = date('m');
+            $current_year = date('Y');
+
             if ($current_month >= 4) {
                 $fy_start_year = $current_year;
                 $fy_end_year = $current_year + 1;
@@ -122,19 +163,35 @@
                 $fy_start_year = $current_year - 1;
                 $fy_end_year = $current_year;
             }
-            
+
             $fy_suffix = substr($fy_start_year, -2) . '-' . substr($fy_end_year, -2);
-            
-            // We need to count how many records exist for this FY
+
             $fy_start_date = $fy_start_year . "-04-01 00:00:00";
             $fy_end_date = $fy_end_year . "-03-31 23:59:59";
-            
-            $stmt = $this->con->prepare("SELECT COUNT(id) FROM $table WHERE created_date_time >= :start AND created_date_time <= :end");
-            $stmt->execute([':start' => $fy_start_date, ':end' => $fy_end_date]);
+
+            $stmt = $this->con->prepare("
+                SELECT COUNT(id) as total 
+                FROM $table 
+                WHERE created_date_time >= :start 
+                AND created_date_time <= :end
+            ");
+
+            // echo $stmt->queryString;
+
+            $stmt->execute([
+                ':start' => $fy_start_date,
+                ':end' => $fy_end_date
+            ]);            
+
+            // Echo Params
+            // echo "<pre>";
+            // print_r($params);
+            // echo "</pre>";
+
             $count = $stmt->fetchColumn();
-            
-            $next_number = $count > 0 ? $count : 1;
-            
+
+            $next_number = $count + 1;
+
             return $prefix . str_pad($next_number, 3, "0", STR_PAD_LEFT) . "/" . $fy_suffix;
         }
 
@@ -343,6 +400,94 @@
                 $query = str_replace($k, $value, $query);
             }
             return "<pre>".$query."</pre>";
+        }
+
+        /* --- PAGINATION & FILTERING --- */
+
+        public function getPaginatedResults($query, $params, $start, $limit) {
+            // Count total records (ignoring limit)
+            $count_query = "SELECT COUNT(*) FROM (" . $query . ") as total_count";
+            $stmt_count = $this->con->prepare($count_query);
+            $stmt_count->execute($params);
+            $total_records = $stmt_count->fetchColumn() ?: 0;
+            
+            // Fetch limited data
+            $limited_query = $query . " LIMIT :start, :limit";
+            $stmt = $this->con->prepare($limited_query);
+            
+            // Bind all original params
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            
+            // Bind pagination params as integers
+            $stmt->bindValue(':start', (int)$start, PDO::PARAM_INT);
+            $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+            
+            $stmt->execute();
+            $data = $stmt->fetchAll();
+            
+            return [
+                'data' => $data,
+                'total_records' => $total_records
+            ];
+        }
+
+        public function getStaffList($start = 0, $limit = 10, $search = '') {
+            $where = "deleted = 0";
+            $params = [];
+            
+            if (!empty($search)) {
+                $where .= " AND (staff_name LIKE :search OR staff_number LIKE :search OR username LIKE :search)";
+                $params[':search'] = "%$search%";
+            }
+            
+            $query = "SELECT * FROM " . $GLOBALS['staff_table'] . " WHERE $where ORDER BY id DESC";
+            return $this->getPaginatedResults($query, $params, $start, $limit);
+        }
+
+        public function getTableList($table_name, $search_cols = [], $start = 0, $limit = 10, $search = '') {
+            $where = "deleted = 0";
+            $params = [];
+            
+            if (!empty($search) && !empty($search_cols)) {
+                $search_parts = [];
+                foreach ($search_cols as $col) {
+                    $search_parts[] = "$col LIKE :search";
+                }
+                $where .= " AND (" . implode(" OR ", $search_parts) . ")";
+                $params[':search'] = "%$search%";
+            }
+            
+            $query = "SELECT * FROM $table_name WHERE $where ORDER BY id DESC";
+            return $this->getPaginatedResults($query, $params, $start, $limit);
+        }
+
+        public function getAttendanceList($start = 0, $limit = 10, $search = '') {
+            $where = "deleted = 0";
+            $params = [];
+            
+            if (!empty($search)) {
+                $where .= " AND (staff_name LIKE :search OR staff_number LIKE :search OR attendance_date LIKE :search)";
+                $params[':search'] = "%$search%";
+            }
+            
+            // Attendance needs to group by date as per previous implementation
+            $query = "SELECT * FROM " . $GLOBALS['attendance_table'] . " WHERE $where ORDER BY attendance_date DESC, id ASC";
+            return $this->getPaginatedResults($query, $params, $start, $limit);
+        }
+
+        public function getEnrollmentList($table_name, $start = 0, $limit = 10, $search = '') {
+            $where = "deleted = 0";
+            $params = [];
+            
+            if (!empty($search)) {
+                $where .= " AND (student_name LIKE :search OR student_id LIKE :search OR mobile_number LIKE :search)";
+                $params[':search'] = "%$search%";
+            }
+            
+            $query = "SELECT * FROM $table_name WHERE $where ORDER BY id DESC";
+            return $this->getPaginatedResults($query, $params, $start, $limit);
         }
     }
 ?>

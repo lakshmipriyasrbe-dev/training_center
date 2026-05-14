@@ -1,6 +1,6 @@
 <?php require_once 'common_file.php'; 
 if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
-$action = $_GET['action'] ?? '';
+$action = $_REQUEST['action'] ?? '';
 
 $staff_name = ""; $staff_number = ""; $role_id = ""; $course_id_arr = []; 
 $salary = ""; $staff_username = ""; $staff_password = ""; $address = "";
@@ -106,7 +106,7 @@ if(isset($_REQUEST['view_staff_id'])) {
                     <?php echo empty($view_staff_id) ? "Add Staff" : "Update Staff"; ?>
                 </button>
                 <?php if(!empty($view_staff_id)) { ?>
-                    <a href="staff.php" class="btn-add" style="background: #ef4444; font-size: 0.75rem;">Cancel</a>
+                    <a href="staff.php" class="btn-add" style="background: #64748b; font-size: 0.75rem;">Cancel</a>
                 <?php } ?>
             </div>
         </form>
@@ -139,26 +139,26 @@ if (isset($_POST['staff_name'])) {
     $res = $valid->valid_name($staff_name, 'Staff Name');
     if ($res) $errors['staff_name'] = $res;
 
-    $res = $valid->valid_mobile($staff_number, 'Staff Number');
-    if ($res) $errors['staff_number'] = $res;
+    // $res = $valid->valid_mobile($staff_number, 'Staff Number');
+    // if ($res) $errors['staff_number'] = $res;
 
-    $res = $valid->common_validation($role_id, 'Role', 'select');
-    if ($res) $errors['role_id'] = $res;
+    // $res = $valid->common_validation($role_id, 'Role', 'select');
+    // if ($res) $errors['role_id'] = $res;
     
-    $res = $valid->common_validation($course_id, 'Course', 'select');
-    if ($res) $errors['course_id'] = $res;
+    // $res = $valid->common_validation($course_id, 'Course', 'select');
+    // if ($res) $errors['course_id'] = $res;
 
-    $res = $valid->common_validation($salary, 'Salary', 'text');
-    if ($res) $errors['salary'] = $res;
+    // $res = $valid->common_validation($salary, 'Salary', 'text');
+    // if ($res) $errors['salary'] = $res;
 
-    $res = $valid->common_validation($staff_username, 'Username', 'text');
-    if ($res) $errors['username'] = $res;
+    // $res = $valid->common_validation($staff_username, 'Username', 'text');
+    // if ($res) $errors['username'] = $res;
     
-    $res = $valid->valid_password($staff_password, 'Password');
-    if ($res) $errors['password'] = $res;
+    // $res = $valid->valid_password($staff_password, 'Password');
+    // if ($res) $errors['password'] = $res;
 
-    $res = $valid->common_validation($address, 'Address', 'text');
-    if ($res) $errors['address'] = $res;
+    // $res = $valid->common_validation($address, 'Address', 'text');
+    // if ($res) $errors['address'] = $res;
 
     if(empty($errors)) {
         // Check username already exists in staff or user table
@@ -236,51 +236,94 @@ if (isset($_POST['staff_name'])) {
     }
 } 
 
-if (isset($action) &&  ($action == 'list')) {
-    $staffs = $bf->getTableRecords($GLOBALS['staff_table'], 'deleted', 0);
+if ($action == 'list') {
+    $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
+    $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 10;
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+    $start = ($page - 1) * $limit;
+
+    $result = $bf->getStaffList($start, $limit, $search);
+    $staffs = $result['data'];
+    $total_records = $result['total_records'];
+    $total_pages = ceil($total_records / $limit);
+
     $roles = $bf->getTableRecords($GLOBALS['role_table']);
     $role_map = [];
     foreach($roles as $r) {
         $role_map[$r['id']] = $r['role_name'];
     }
 
-    $sno = 0;
-    if (empty($staffs)) {
-        echo "<p>No staff found.</p>";
-    } else { ?> 
+    ?>
+
+    <div class="table-responsive">
         <table>
-            <tr>
-                <th>Sno</th>
-                <th>Name</th>
-                <th>Number</th>
-                <th>Role</th>
-                <th>Salary</th>
-                <th>Username</th>
-                <th>Action</th>
-            </tr>
-            <?php foreach ($staffs as $s) { $sno++; ?>
+            <thead>
                 <tr>
-                    <td><?php echo $sno; ?></td>
-                    <td><?php echo $s['staff_name']; ?></td>
-                    <td><?php echo $s['staff_number']; ?></td>
-                    <td><?php echo isset($role_map[$s['role_id']]) ? $role_map[$s['role_id']] : $s['role_id']; ?></td>
-                    <td><?php echo $s['salary']; ?></td>
-                    <td><?php echo $s['username']; ?></td>
-                    <td>
-                        <button class="btn-add" onclick="Javacript:ShowPage('staff', '<?php echo $s['id']; ?>')">Edit</button>
-                        <button class="btn-add" style="background: #ef4444; font-size: 0.75rem;" onclick="deleteRecord('staff','<?php echo $s['id']; ?>')">Delete</button>
-                    </td>
+                    <th>Sno</th>
+                    <th>Name</th>
+                    <th>Number</th>
+                    <th>Role</th>
+                    <th>Salary</th>
+                    <th>Username</th>
+                    <th>Action</th>
                 </tr>
-            <?php } ?>
+            </thead>
+            <tbody>
+                <?php if (empty($staffs)) { ?>
+                    <tr><td colspan="7" style="text-align:center">No staff found.</td></tr>
+                <?php } else { 
+                    $sno = $start;
+                    foreach ($staffs as $s) { $sno++; ?>
+                    <tr>
+                        <td><?php echo $sno; ?></td>
+                        <td><?php echo $s['staff_name']; ?></td>
+                        <td><?php echo $s['staff_number']; ?></td>
+                        <td><?php echo $role_map[$s['role_id']] ?? $s['role_id']; ?></td>
+                        <td><?php echo $s['salary']; ?></td>
+                        <td><?php echo $s['username']; ?></td>
+                        <td>
+                            <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('staff', '<?php echo $s['id']; ?>')">Edit</button>
+                            <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('staff','<?php echo $s['id']; ?>')">Delete</button>
+                        </td>
+                    </tr>
+                <?php } } ?>
+            </tbody>
         </table>
+    </div>
+
+    <div class="pagination-container">
+        <div class="pagination-info">
+            Showing <?php echo ($total_records > 0) ? $start + 1 : 0; ?> to <?php echo min($start + $limit, $total_records); ?> of <?php echo $total_records; ?> entries
+        </div>
+        <div class="pagination-buttons">
+            <button class="page-btn" <?php echo ($page <= 1) ? 'disabled' : ''; ?> onclick="loadData('staff', <?php echo $page - 1; ?>, $('#staff_limit').val(), $('#staff_search').val())">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <?php 
+            // Show max 5 page buttons
+            $start_page = max(1, $page - 2);
+            $end_page = min($total_pages, $start_page + 4);
+            if ($end_page - $start_page < 4) $start_page = max(1, $end_page - 4);
+
+            for ($i = $start_page; $i <= $end_page; $i++) { ?>
+                <button class="page-btn <?php echo ($i == $page) ? 'active' : ''; ?>" onclick="loadData('staff', <?php echo $i; ?>, $('#staff_limit').val(), $('#staff_search').val())">
+                    <?php echo $i; ?>
+                </button>
+            <?php } ?>
+            <button class="page-btn" <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?> onclick="loadData('staff', <?php echo $page + 1; ?>, $('#staff_limit').val(), $('#staff_search').val())">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
     <?php
-    }
+    exit;
 }
 
-if (isset($_POST['action']) && $_POST['action'] == 'delete') {
+if ($action == 'delete') {
     $id = $bf->sanitize($_POST['id'] ?? '');
     $data = ['deleted' => 1, 'updated_date_time' => $GLOBALS['create_date_time_label']];
     $bf->UpdateSQL($GLOBALS['staff_table'], $data, "id = :id", [':id' => $id]);
     echo "Success";
+    exit;
 }
 ?>

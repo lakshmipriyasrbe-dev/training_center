@@ -22,11 +22,29 @@ $from_page = 'enrollment';
 
         <div class="module-section">
             <div class="section-title">
-                Active Enrollments
-                <button class="btn-add" onclick="Javacript:ShowPage('<?php echo $from_page; ?>', '')">Add New Enrollment</button>
+                Active Training Enrollments
+                <button class="btn-add" onclick="ShowPage('enrollment', '')">Add New Enrollment</button>
             </div>
+
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="enrollment_limit" onchange="loadData('enrollment', 1, this.value, $('#enrollment_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="enrollment_search" placeholder="Search enrollments..." onkeyup="loadData('enrollment', 1, $('#enrollment_limit').val(), this.value)">
+                </div>
+            </div>
+
             <div id="enrollment_list">
-                <p>Loading Enrollments...</p>
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Enrollments...</p>
             </div>
         </div>
     </div>
@@ -37,17 +55,6 @@ $from_page = 'enrollment';
         $(document).ready(function() {
             loadData('enrollment');
         });
-
-        function loadData(page_name) {
-            $.post(page_name + '_action.php', {
-                action: 'list'
-            }, function(data) {
-
-                $('#enrollment_list').html(data);
-
-            });
-        }
-        
     </script>
     <script src="main/js/script.js"></script>
     <script src="main/js/keyboard_control.js"></script>

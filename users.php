@@ -24,30 +24,33 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
                 Active Users
                 <button class="btn-add" onclick="window.location.href='registration.php'">Add New User</button>
             </div>
-            <div id="userList">
-                <p>Loading users...</p>
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="user_limit" onchange="loadData('user', 1, this.value, $('#user_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="user_search" placeholder="Search users..." onkeyup="loadData('user', 1, $('#user_limit').val(), this.value)">
+                </div>
+            </div>
+
+            <div id="user_list">
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Users...</p>
             </div>
         </div>
     </div>
 
     <script>
         $(document).ready(function() {
-            loadUsers();
+            loadData('user');
         });
-
-        function loadUsers() {
-            $.get('user_action.php?action=list', function(data) {
-                $('#userList').html(data);
-            });
-        }
-
-        function deleteUser(id) {
-            if (confirm('Are you sure you want to delete this user?')) {
-                $.post('user_action.php', { action: 'delete', id: id }, function() {
-                    loadUsers();
-                });
-            }
-        }
     </script>
 </body>
 </html>

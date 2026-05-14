@@ -1,6 +1,6 @@
 <?php require_once 'common_file.php'; 
 if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
-$action = $_GET['action'] ?? '';
+$action = $_REQUEST['action'] ?? '';
 
    $course_id = ""; $course_name = "";  $course_duration = ""; $course_fee = ""; 
 
@@ -230,68 +230,81 @@ if (isset($_POST['course_name'])) {
     }
 } 
 
-if (isset($action) &&  ($action == 'list')) {
-    $courses = $bf->getTableRecords($GLOBALS['course_table'], 'deleted', 0);
-    // print_r($courses);
-    $sno = 0;
-    if (empty($courses)) {
-        echo "<p>No courses found.</p>";
-    } else { ?> 
-        <table>
+if ($action == 'list') {
+    $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
+    $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 10;
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+    $start = ($page - 1) * $limit;
 
-            <tr>
-                <th>Sno</th>
-                <th>Name</th>
-                <th>Duration</th>
-                <th>Fees Amount</th>
-                <th>Action</th>
-            </tr>
+    $result = $bf->getTableList($GLOBALS['course_table'], ['course_name'], $start, $limit, $search);
+    $courses = $result['data'];
+    $total_records = $result['total_records'];
+    $total_pages = ceil($total_records / $limit);
 
-            <?php foreach ($courses as $u) { $sno++; ?>
+    if (empty($courses)) { ?>
+        <div class="table-responsive">
+            <table><tr><td style="text-align:center">No courses found.</td></tr></table>
+        </div>
+    <?php } else {
+        ?>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sno</th>
+                        <th>Name</th>
+                        <th>Duration</th>
+                        <th>Fees Amount</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php 
+                $sno = $start + 1;
+                foreach ($courses as $u) { 
+                ?>
+                    <tr>
+                        <td><?php echo $sno++; ?></td>
+                        <td><span style="font-weight: 600; color: var(--primary);"><?php echo $u['course_name']; ?></span></td>
+                        <td><?php echo $u['course_duration']; ?> Months</td>
+                        <td>₹<?php echo number_format($u['course_fee'], 2); ?></td>
+                        <td>
+                            <div style="display:flex; gap:0.5rem;">
+                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('course', '<?php echo $u['course_id']; ?>')">Edit</button>
+                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('course', '<?php echo $u['course_id']; ?>')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div>
 
-                <tr>
-
-                    <td>
-                        <?php echo $sno; ?>
-                    </td>
-
-                    <td>
-                        <?php echo $u['course_name']; ?>
-                    </td>
-
-                    <td>
-                        <?php echo $u['course_duration']; ?>
-                    </td>
-
-                    <td>
-                        <?php echo $u['course_fee']; ?>
-                    </td>
-
-                    <td>
-                        <button
-                            class="btn-add"
-                            onclick="Javacript:ShowPage('course', '<?php echo $u['course_id']; ?>')"
-                        >
-                            Edit
-                        </button>
-                        <button
-                            class="btn-add"
-                            style="background: #ef4444; font-size: 0.75rem;"
-                            onclick="deleteRecord('course','<?php echo $u['course_id']; ?>')"
-                        >
-                            Delete
-                        </button>
-
-                    </td>
-
-                </tr>
-
-            <?php } ?>
-
-        </table>
-
+        <div class="pagination-container">
+            <div class="pagination-info">
+                Showing <?php echo ($total_records > 0) ? $start + 1 : 0; ?> to <?php echo min($start + $limit, $total_records); ?> of <?php echo $total_records; ?> entries
+            </div>
+            <div class="pagination-buttons">
+                <button class="page-btn" <?php echo ($page <= 1) ? 'disabled' : ''; ?> onclick="loadData('course', <?php echo $page - 1; ?>, $('#course_limit').val(), $('#course_search').val())">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <?php 
+                $start_page = max(1, $page - 2);
+                $end_page = min($total_pages, $start_page + 4);
+                if ($end_page - $start_page < 4) $start_page = max(1, $end_page - 4);
+                for ($i = $start_page; $i <= $end_page; $i++) { ?>
+                    <button class="page-btn <?php echo ($i == $page) ? 'active' : ''; ?>" onclick="loadData('course', <?php echo $i; ?>, $('#course_limit').val(), $('#course_search').val())">
+                        <?php echo $i; ?>
+                    </button>
+                <?php } ?>
+                <button class="page-btn" <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?> onclick="loadData('course', <?php echo $page + 1; ?>, $('#course_limit').val(), $('#course_search').val())">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     <?php
     }
+    exit;
 }
 
 if (isset($_POST['action']) && $_POST['action'] == 'delete') {

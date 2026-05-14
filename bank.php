@@ -33,10 +33,28 @@ $from_page = 'bank';
         <div class="module-section">
             <div class="section-title">
                 Active Banks
-                <button class="btn-add" onclick="Javacript:ShowPage('<?php echo $from_page; ?>', '')">Add New Bank</button>
+                <button class="btn-add" onclick="ShowPage('bank', '')">Add New Bank</button>
             </div>
-            <div id="<?php echo $from_page; ?>_list">
-                <p>Loading banks...</p>
+
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="bank_limit" onchange="loadData('bank', 1, this.value, $('#bank_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="bank_search" placeholder="Search banks..." onkeyup="loadData('bank', 1, $('#bank_limit').val(), this.value)">
+                </div>
+            </div>
+
+            <div id="bank_list">
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Banks...</p>
             </div>
         </div>
     </div>
@@ -46,12 +64,6 @@ $from_page = 'bank';
         $(document).ready(function() {
             loadData('bank');
         });
-
-        function loadData(page_name) {
-            $.get(page_name + '_action.php?action=list', function(data) {
-                $('#' + page_name + '_list').html(data);
-            });
-        }
     </script>
     <script src="main/js/script.js"></script>
     <script src="main/js/keyboard_control.js"></script>

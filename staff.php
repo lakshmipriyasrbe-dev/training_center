@@ -37,10 +37,28 @@ $from_page = 'staff';
         <div class="module-section">
             <div class="section-title">
                 Active Staff
-                <button class="btn-add" onclick="Javacript:ShowPage('<?php echo $from_page; ?>', '')">Add New Staff</button>
+                <button class="btn-add" onclick="ShowPage('staff', '')">Add New Staff</button>
             </div>
-            <div id="<?php echo $from_page; ?>_list">
-                <p>Loading Staff...</p>
+
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="staff_limit" onchange="loadData('staff', 1, this.value, $('#staff_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="staff_search" placeholder="Search staff..." onkeyup="loadData('staff', 1, $('#staff_limit').val(), this.value)">
+                </div>
+            </div>
+
+            <div id="staff_list">
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Staff...</p>
             </div>
         </div>
     </div>
@@ -51,21 +69,6 @@ $from_page = 'staff';
         $(document).ready(function() {
             loadData('staff');
         });
-
-        function loadData(page_name) {
-            $.get(page_name + '_action.php?action=list', function(data) {
-                $('#' + page_name + '_list').html(data);
-            });
-        }
-
-        function deleteRecord(page_name, id) {
-            if (confirm('Are you sure you want to delete this ' + page_name + '?')) {
-                $.post(page_name + '_action.php', { action: 'delete', id: id }, function() {
-                    loadData(page_name);
-                });
-            }
-        }
-        
     </script>
     <script src="main/js/script.js"></script>
     <script src="main/js/keyboard_control.js"></script>

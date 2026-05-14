@@ -309,37 +309,82 @@ if (isset($_REQUEST['action']) && ($action == 'delete')) {
     exit;
 }
 
-if (isset($action) && ($action == 'list')) {
-    $banks = $bf->getTableRecords($GLOBALS['bank_table'], 'deleted', 0);
-    $sno = 0;
-    if (empty($banks)) {
-        echo "<p>No banks found.</p>";
-    } else { ?>
-        <table>
-            <tr>
-                <th>Sno</th>
-                <th>Bank Name</th>
-                <th>Account Name</th>
-                <th>Account Number</th>
-                <th>IFSC Code</th>
-                <th>Branch</th>
-                <th>Action</th>
-            </tr>
-            <?php foreach ($banks as $u) { $sno++; ?>
-                <tr>
-                    <td><?php echo $sno; ?></td>
-                    <td><?php echo $u['bank_name']; ?></td>
-                    <td><?php echo $u['account_name']; ?></td>
-                    <td><?php echo $u['account_number']; ?></td>
-                    <td><?php echo $u['ifsc_code']; ?></td>
-                    <td><?php echo $u['branch']; ?></td>
-                    <td>
-                        <button class="btn-add" onclick="Javacript:ShowPage('bank', '<?php echo $u['bank_id']; ?>')">Edit</button>
-                        <button class="btn-add" style="background: #ef4444;" onclick="deleteRecord('bank', '<?php echo $u['bank_id']; ?>')">Delete</button>
-                    </td>
-                </tr>
-            <?php } ?>
-        </table>
-    <?php }
+if ($action == 'list') {
+    $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
+    $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 10;
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+    $start = ($page - 1) * $limit;
+
+    $result = $bf->getTableList($GLOBALS['bank_table'], ['bank_name', 'account_number', 'branch'], $start, $limit, $search);
+    $banks = $result['data'];
+    $total_records = $result['total_records'];
+    $total_pages = ceil($total_records / $limit);
+
+    if (empty($banks)) { ?>
+        <div class="table-responsive">
+            <table><tr><td style="text-align:center">No banks found.</td></tr></table>
+        </div>
+    <?php } else {
+        ?>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sno</th>
+                        <th>Bank Name</th>
+                        <th>Account Name</th>
+                        <th>Account Number</th>
+                        <th>Branch</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php 
+                $sno = $start + 1;
+                foreach ($banks as $u) { 
+                ?>
+                    <tr>
+                        <td><?php echo $sno++; ?></td>
+                        <td><span style="font-weight: 600; color: var(--primary);"><?php echo $u['bank_name']; ?></span></td>
+                        <td><?php echo $u['account_name']; ?></td>
+                        <td><?php echo $u['account_number']; ?></td>
+                        <td><?php echo $u['branch']; ?></td>
+                        <td>
+                            <div style="display:flex; gap:0.5rem;">
+                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('bank', '<?php echo $u['bank_id']; ?>')">Edit</button>
+                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('bank', '<?php echo $u['bank_id']; ?>')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-container">
+            <div class="pagination-info">
+                Showing <?php echo ($total_records > 0) ? $start + 1 : 0; ?> to <?php echo min($start + $limit, $total_records); ?> of <?php echo $total_records; ?> entries
+            </div>
+            <div class="pagination-buttons">
+                <button class="page-btn" <?php echo ($page <= 1) ? 'disabled' : ''; ?> onclick="loadData('bank', <?php echo $page - 1; ?>, $('#bank_limit').val(), $('#bank_search').val())">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <?php 
+                $start_page = max(1, $page - 2);
+                $end_page = min($total_pages, $start_page + 4);
+                if ($end_page - $start_page < 4) $start_page = max(1, $end_page - 4);
+                for ($i = $start_page; $i <= $end_page; $i++) { ?>
+                    <button class="page-btn <?php echo ($i == $page) ? 'active' : ''; ?>" onclick="loadData('bank', <?php echo $i; ?>, $('#bank_limit').val(), $('#bank_search').val())">
+                        <?php echo $i; ?>
+                    </button>
+                <?php } ?>
+                <button class="page-btn" <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?> onclick="loadData('bank', <?php echo $page + 1; ?>, $('#bank_limit').val(), $('#bank_search').val())">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    <?php
+    }
+    exit;
 }
 ?>

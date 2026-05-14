@@ -23,10 +23,27 @@ $from_page = 'payment_mode';
         <div class="module-section">
             <div class="section-title">
                 Active Payment Modes
-                <button class="btn-add" onclick="Javacript:ShowPage('<?php echo $from_page; ?>', '')">Add New Payment Mode</button>
+                <button class="btn-add" onclick="ShowPage('payment_mode', '')">Add New Mode</button>
             </div>
-            <div id="<?php echo $from_page; ?>_list">
-                <p>Loading payment modes...</p>
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="payment_mode_limit" onchange="loadData('payment_mode', 1, this.value, $('#payment_mode_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="payment_mode_search" placeholder="Search modes..." onkeyup="loadData('payment_mode', 1, $('#payment_mode_limit').val(), this.value)">
+                </div>
+            </div>
+
+            <div id="payment_mode_list">
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Payment Modes...</p>
             </div>
         </div>
     </div>
@@ -36,12 +53,6 @@ $from_page = 'payment_mode';
         $(document).ready(function() {
             loadData('payment_mode');
         });
-
-        function loadData(page_name) {
-            $.get(page_name + '_action.php?action=list', function(data) {
-                $('#' + page_name + '_list').html(data);
-            });
-        }
     </script>
     <script src="main/js/script.js"></script>
     <script src="main/js/keyboard_control.js"></script>

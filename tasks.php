@@ -24,28 +24,40 @@
                 <button class="btn-add" onclick="window.location.href='add_task.php'">Create New Task</button>
                 <?php endif; ?>
             </div>
-            <div id="taskList">
-                <p>Loading tasks...</p>
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="task_limit" onchange="loadData('task', 1, this.value, $('#task_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="task_search" placeholder="Search tasks..." onkeyup="loadData('task', 1, $('#task_limit').val(), this.value)">
+                </div>
+            </div>
+
+            <div id="task_list">
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Tasks...</p>
             </div>
         </div>
     </div>
 
     <script>
         $(document).ready(function() {
-            loadTasks();
+            loadData('task');
         });
-
-        function loadTasks() {
-            $.get('task_action.php?action=list', function(data) {
-                $('#taskList').html(data);
-            });
-        }
 
         function updateStatus(taskId, status) {
             $.post('task_action.php', { action: 'update_status', id: taskId, status: status }, function() {
-                loadTasks();
+                loadData('task');
             });
         }
     </script>
+    <script src="main/js/script.js"></script>
 </body>
 </html>

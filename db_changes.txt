@@ -68,3 +68,55 @@ CREATE TABLE `tc_bank` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
+CREATE TABLE `tc_course_closure` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  `closure_id` mediumtext DEFAULT NULL,
+  `closure_date` date DEFAULT NULL,
+  `course_type` mediumtext DEFAULT NULL,
+  `student_id` mediumtext DEFAULT NULL,
+  `student_name` mediumtext DEFAULT NULL,
+  `certificate_got` int(11) DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE `tc_attendance` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  `attendance_id` mediumtext DEFAULT NULL,
+  `attendance_date` date DEFAULT NULL,
+  `staff_id` mediumtext DEFAULT NULL,
+  `staff_name` mediumtext DEFAULT NULL,
+  `staff_number` mediumtext DEFAULT NULL,
+  `staff_role` mediumtext DEFAULT NULL,
+  `fn_present` mediumtext DEFAULT NULL,
+  `an_present` mediumtext DEFAULT NULL,
+  `present_code` mediumtext DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci; 
+
+CREATE TABLE `tc_payroll` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  `payroll_id` mediumtext DEFAULT NULL,
+  `payroll_number` mediumtext DEFAULT NULL,
+  `staff_id` int(11) DEFAULT NULL,
+  `month` int(11) DEFAULT NULL,
+  `year` int(11) DEFAULT NULL,
+  `monthly_salary` decimal(10,2) DEFAULT NULL,
+  `per_day_salary` decimal(10,2) DEFAULT NULL,
+  `cl_days` int(11) DEFAULT 0,
+  `lop_days` int(11) DEFAULT 0,
+  `total_deduction` decimal(10,2) DEFAULT NULL,
+  `incentive_amount` decimal(10,2) DEFAULT NULL,
+  `total_references` int(11) DEFAULT 0,
+  `net_salary` decimal(10,2) DEFAULT NULL,
+  `payment_date` date DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;

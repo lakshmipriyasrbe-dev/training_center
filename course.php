@@ -23,10 +23,28 @@ $from_page = 'course';
         <div class="module-section">
             <div class="section-title">
                 Active Courses
-                <button class="btn-add" onclick="Javacript:ShowPage('<?php echo $from_page; ?>', '')">Add New Course</button>
+                <button class="btn-add" onclick="ShowPage('course', '')">Add New Course</button>
             </div>
-            <div id="<?php echo $from_page; ?>_list">
-                <p>Loading Courses...</p>
+
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="course_limit" onchange="loadData('course', 1, this.value, $('#course_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="course_search" placeholder="Search courses..." onkeyup="loadData('course', 1, $('#course_limit').val(), this.value)">
+                </div>
+            </div>
+
+            <div id="course_list">
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Courses...</p>
             </div>
         </div>
     </div>
@@ -37,25 +55,6 @@ $from_page = 'course';
         $(document).ready(function() {
             loadData('course');
         });
-
-        function loadData(page_name) {
-
-            $.get(page_name + '_action.php?action=list', function(data) {
-
-                $('#' + page_name + '_list').html(data);
-
-            });
-
-        }
-
-        function deleteCourse(id) {
-            if (confirm('Are you sure you want to delete this Course?')) {
-                $.get('course_action.php', { action: 'delete', id: id }, function() {
-                    loadData('course');
-                });
-            }
-        }
-        
     </script>
     <script src="main/js/script.js"></script>
     <script src="main/js/keyboard_control.js"></script>

@@ -24,22 +24,34 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
                 Available Roles
                 <button class="btn-add" onclick="window.location.href='add_role.php'">Add New Role</button>
             </div>
-            <div id="roleList">
-                <p>Loading roles...</p>
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="role_limit" onchange="loadData('role', 1, this.value, $('#role_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="role_search" placeholder="Search roles..." onkeyup="loadData('role', 1, $('#role_limit').val(), this.value)">
+                </div>
+            </div>
+
+            <div id="role_list">
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Roles...</p>
             </div>
         </div>
     </div>
 
     <script>
         $(document).ready(function() {
-            loadRoles();
+            loadData('role');
         });
-
-        function loadRoles() {
-            $.get('role_action.php?action=list', function(data) {
-                $('#roleList').html(data);
-            });
-        }
     </script>
+    <script src="main/js/script.js"></script>
 </body>
 </html>

@@ -22,22 +22,34 @@
                 Report History
                 <button class="btn-add" onclick="window.location.href='add_report.php'">Submit Today's Report</button>
             </div>
-            <div id="reportList">
-                <p>Loading reports...</p>
+            <div class="list-controls">
+                <div class="entries-control">
+                    Show 
+                    <select id="report_limit" onchange="loadData('report', 1, this.value, $('#report_search').val())">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    entries
+                </div>
+                <div class="search-control">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="report_search" placeholder="Search reports..." onkeyup="loadData('report', 1, $('#report_limit').val(), this.value)">
+                </div>
+            </div>
+
+            <div id="report_list">
+                <p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading Reports...</p>
             </div>
         </div>
     </div>
 
     <script>
         $(document).ready(function() {
-            loadReports();
+            loadData('report');
         });
-
-        function loadReports() {
-            $.get('report_action.php?action=list', function(data) {
-                $('#reportList').html(data);
-            });
-        }
     </script>
+    <script src="main/js/script.js"></script>
 </body>
 </html>

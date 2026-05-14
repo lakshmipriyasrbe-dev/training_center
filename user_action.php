@@ -51,31 +51,79 @@ if ($action == 'add' && $user_role == 'admin') {
 }
 
 if ($action == 'list') {
-    $users = $bf->getTableRecords($GLOBALS['user_table'], 'deleted', 0);
-    if (empty($users)) {
-        echo "<p>No users found.</p>";
-    } else {
-        echo "<table>
-                <tr>
-                    <th>Name</th>
-                    <th>Username</th>
-                    <th>Mobile</th>
-                    <th>Role</th>
-                    <th>Action</th>
-                </tr>";
-        foreach ($users as $u) {
-            echo "<tr>
-                    <td>" . $u['name'] . "</td>
-                    <td>" . $u['username'] . "</td>
-                    <td>" . $u['mobile'] . "</td>
-                    <td><span style='color: var(--primary);'>" . ucfirst($u['role']) . "</span></td>
-                    <td>
-                        <button class='btn-add' style='background: #ef4444; font-size: 0.75rem;' onclick='deleteUser(" . $u['id'] . ")'>Delete</button>
-                    </td>
-                  </tr>";
-        }
-        echo "</table>";
+    $page = isset($_POST['page']) ? (int)$_POST['page'] : 1;
+    $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 10;
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+    $start = ($page - 1) * $limit;
+
+    $result = $bf->getTableList($GLOBALS['user_table'], ['name', 'username', 'mobile'], $start, $limit, $search);
+    $users = $result['data'];
+    $total_records = $result['total_records'];
+    $total_pages = ceil($total_records / $limit);
+
+    if (empty($users)) { ?>
+        <div class="table-responsive">
+            <table><tr><td style="text-align:center">No users found.</td></tr></table>
+        </div>
+    <?php } else {
+        ?>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sno</th>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Mobile</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php 
+                $sno = $start + 1;
+                foreach ($users as $u) { 
+                ?>
+                    <tr>
+                        <td><?php echo $sno++; ?></td>
+                        <td><strong style="color: var(--primary);"><?php echo $u['name']; ?></strong></td>
+                        <td><?php echo $u['username']; ?></td>
+                        <td><?php echo $u['mobile']; ?></td>
+                        <td><span class="status-badge" style="background: var(--primary-light); color: var(--primary);"><?php echo ucfirst($u['role']); ?></span></td>
+                        <td>
+                            <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('user', '<?php echo $u['id']; ?>')">Delete</button>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-container">
+            <div class="pagination-info">
+                Showing <?php echo ($total_records > 0) ? $start + 1 : 0; ?> to <?php echo min($start + $limit, $total_records); ?> of <?php echo $total_records; ?> entries
+            </div>
+            <div class="pagination-buttons">
+                <button class="page-btn" <?php echo ($page <= 1) ? 'disabled' : ''; ?> onclick="loadData('user', <?php echo $page - 1; ?>, $('#user_limit').val(), $('#user_search').val())">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <?php 
+                $start_page = max(1, $page - 2);
+                $end_page = min($total_pages, $start_page + 4);
+                if ($end_page - $start_page < 4) $start_page = max(1, $end_page - 4);
+                for ($i = $start_page; $i <= $end_page; $i++) { ?>
+                    <button class="page-btn <?php echo ($i == $page) ? 'active' : ''; ?>" onclick="loadData('user', <?php echo $i; ?>, $('#user_limit').val(), $('#user_search').val())">
+                        <?php echo $i; ?>
+                    </button>
+                <?php } ?>
+                <button class="page-btn" <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?> onclick="loadData('user', <?php echo $page + 1; ?>, $('#user_limit').val(), $('#user_search').val())">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    <?php
     }
+    exit;
 }
 
 if ($action == 'delete') {
