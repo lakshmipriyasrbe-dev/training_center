@@ -2,7 +2,7 @@
 require_once 'common_file.php';
 $action = $_REQUEST['action'] ?? '';
 
-if ($action == 'add' && $user_role == 'admin') {
+if ($action == 'add' && checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'tasks', PERMISSION_ADD)) {
     $title = $bf->sanitize($_POST['title'] ?? '');
     $description = $bf->sanitize($_POST['description'] ?? '');
     $assigned_to = $bf->sanitize($_POST['assigned_to'] ?? '');
@@ -39,10 +39,11 @@ if ($action == 'list') {
     $query = "FROM " . $GLOBALS['task_table'] . " t 
               LEFT JOIN " . $GLOBALS['user_table'] . " u ON t.assigned_to = u.id 
               LEFT JOIN " . $GLOBALS['staff_table'] . " s ON t.assigned_to = s.staff_id 
-              WHERE t.deleted = :deleted";
-    $params = [':deleted' => 0];
+              WHERE t.deleted = :deleted AND t.company_id = :comp_id";
+    $params = [':deleted' => 0, ':comp_id' => $_SESSION['company_id']];
 
-    if ($user_role != 'admin') {
+    $can_manage_all = ($user_role == 'admin') || checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'tasks', PERMISSION_ADD);
+    if (!$can_manage_all) {
         $query .= " AND t.assigned_to = :user_id";
         $params[':user_id'] = $user_id;
     }

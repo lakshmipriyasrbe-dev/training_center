@@ -1,5 +1,4 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 $from_page = 'course';
 ?>
 <!DOCTYPE html>
@@ -7,7 +6,7 @@ $from_page = 'course';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management - Training Center</title>
+    <title>User Management - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -23,7 +22,9 @@ $from_page = 'course';
         <div class="module-section">
             <div class="section-title">
                 Active Courses
-                <button class="btn-add" onclick="ShowPage('course', '')">Add New Course</button>
+                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'course', PERMISSION_ADD)): ?>
+                    <button class="btn-add" onclick="ShowPage('course', '')">Add New Course</button>
+                <?php endif; ?>
             </div>
 
             <div class="list-controls">

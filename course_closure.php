@@ -1,5 +1,4 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 $from_page = 'course_closure';
 ?>
 <!DOCTYPE html>
@@ -7,7 +6,7 @@ $from_page = 'course_closure';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Course Closure - Training Center</title>
+    <title>Course Closure - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">

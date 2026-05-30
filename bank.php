@@ -1,5 +1,4 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 $from_page = 'bank';
 ?>
 <!DOCTYPE html>
@@ -7,7 +6,7 @@ $from_page = 'bank';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bank - Training Center</title>
+    <title>Bank - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
@@ -33,7 +32,9 @@ $from_page = 'bank';
         <div class="module-section">
             <div class="section-title">
                 Active Banks
-                <button class="btn-add" onclick="ShowPage('bank', '')">Add New Bank</button>
+                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'bank', PERMISSION_ADD)): ?>
+                    <button class="btn-add" onclick="ShowPage('bank', '')">Add New Bank</button>
+                <?php endif; ?>
             </div>
 
             <div class="list-controls">

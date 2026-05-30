@@ -15,6 +15,9 @@ if ($action == 'add') {
     $res = $valid->common_validation($hours_spent, 'Hours Spent', '');
     if ($res) $errors['hours_spent'] = $res;
 
+    // echo $user_id." hi";
+    // exit();
+
     if (empty($errors)) {
         $data = [
             'user_id' => $user_id,
@@ -38,17 +41,17 @@ if ($action == 'list') {
     $start = ($page - 1) * $limit;
 
     $query = "FROM " . $GLOBALS['report_table'] . " r 
-              JOIN " . $GLOBALS['user_table'] . " u ON r.user_id = u.id 
-              WHERE r.deleted = :deleted";
-    $params = [':deleted' => 0];
+              JOIN " . $GLOBALS['staff_table'] . " u ON r.user_id = u.staff_id 
+              WHERE r.deleted = :deleted AND r.company_id = :comp_id";
+    $params = [':deleted' => 0, ':comp_id' => $_SESSION['company_id']];
 
-    if ($user_role != 'admin') {
+    if ($user_role != 'admin' && !$is_management) {
         $query .= " AND r.user_id = :user_id";
         $params[':user_id'] = $user_id;
     }
 
     if (!empty($search)) {
-        $query .= " AND (u.name LIKE :search OR r.activity_details LIKE :search)";
+        $query .= " AND (u.staff_name LIKE :search OR r.activity_details LIKE :search)";
         $params[':search'] = "%$search%";
     }
 
@@ -58,7 +61,7 @@ if ($action == 'list') {
     $total_pages = ceil($total_records / $limit);
 
     // Get paginated data
-    $data_query = "SELECT r.*, u.name as user_name, u.role as user_role " . $query . " ORDER BY r.report_date DESC LIMIT $start, $limit";
+    $data_query = "SELECT r.*, u.staff_name as user_name, u.role as user_role " . $query . " ORDER BY r.report_date DESC LIMIT $start, $limit";
     $reports = $bf->getQueryRecords($data_query, $params);
 
     if (empty($reports)) { ?>

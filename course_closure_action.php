@@ -1,5 +1,5 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
+if ($user_role !== 'admin' && !checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'course_closure', PERMISSION_VIEW)) { header("Location: dashboard.php"); exit(); }
 $action = $_POST['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['closure_date']) && empty($action)) {
@@ -32,10 +32,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['closure_date']) && em
     if (empty($student_id)) {
         $errors['student_id'] = 'Please select a student';
     } else {
-        // Check if student ID exists in the respective enrollment table
+        // Check if enrollment ID exists in the respective enrollment table
         $enrollment_table = $course_type === 'internship' ? $GLOBALS['enrollment_internship_table'] : $GLOBALS['enrollment_table'];
-        $student_id_encrypted = $bf->encode_decode('encrypt', $student_id);
-        $student_records = $bf->getTableRecords($enrollment_table, 'student_id', $student_id_encrypted);
+        $enrollment_id_field = $course_type === 'internship' ? 'enrollment_internship_id' : 'enrollment_id';
+        $student_records = $bf->getTableRecords($enrollment_table, $enrollment_id_field, $student_id);
         if (empty($student_records)) {
             $errors['student_id'] = 'Selected student does not exist';
         }
@@ -75,22 +75,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['closure_date']) && em
     }
 
     if (empty($errors)) {
-        // Fetch student name from enrollment table
+        // Fetch student name and actual student ID from enrollment table
         $enrollment_table = $course_type === 'internship' ? $GLOBALS['enrollment_internship_table'] : $GLOBALS['enrollment_table'];
-        $student_id_encrypted = $bf->encode_decode('encrypt', $student_id);
-        $student_records = $bf->getTableRecords($enrollment_table, 'student_id', $student_id_encrypted);
+        $enrollment_id_field = $course_type === 'internship' ? 'enrollment_internship_id' : 'enrollment_id';
+        $student_records = $bf->getTableRecords($enrollment_table, $enrollment_id_field, $student_id);
         $student_name = '';
+        $actual_student_id_encrypted = '';
         if (!empty($student_records)) {
             $student_name = $student_records[0]['student_name'] ?? '';
+            $actual_student_id_encrypted = $student_records[0]['student_id'] ?? '';
         } 
-
-        // echo $student_name." hi"; exit;
 
         $data = [
             'course_closed' => 1,
             'closure_date' => $closure_date,
             'course_type' => $course_type,
-            'student_id' => $student_id_encrypted,
+            'student_id' => $actual_student_id_encrypted, // store actual student_id
+            'enrollment_id' => $student_id, // store unique enrollment_id
             'student_name' => $student_name,
             'certificate_got' => $certificate_got,
             'placed' => $placement,
@@ -112,22 +113,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['closure_date']) && em
                 'ADD COURSE CLOSURE'
             );
             
-            // Mark course as closed in enrollment table
+            // Mark specific enrollment course as closed in enrollment table
             $bf->UpdateSQL(
                 $enrollment_table,
                 ['course_closed' => 1],
-                'student_id = :student_id',
-                [':student_id' => $student_id_encrypted]
+                "$enrollment_id_field = :enroll_id",
+                [':enroll_id' => $student_id]
             );
             
             echo json_encode(['status' => 'success', 'message' => 'Course closure added successfully']);
         } else {
+            // Revert old enrollment closure status if it changed during edit
+            $prev_closure = $bf->getTableRecords($GLOBALS['course_closure_table'], 'id', $view_course_closure_id);
+            if (!empty($prev_closure)) {
+                $old_enroll_id = $prev_closure[0]['enrollment_id'];
+                $old_course_type = $prev_closure[0]['course_type'];
+                $old_enroll_table = $old_course_type === 'internship' ? $GLOBALS['enrollment_internship_table'] : $GLOBALS['enrollment_table'];
+                $old_enroll_id_field = $old_course_type === 'internship' ? 'enrollment_internship_id' : 'enrollment_id';
+                
+                if (!empty($old_enroll_id) && $old_enroll_id !== $student_id) {
+                    $bf->UpdateSQL(
+                        $old_enroll_table,
+                        ['course_closed' => 2],
+                        "$old_enroll_id_field = :old_id",
+                        [':old_id' => $old_enroll_id]
+                    );
+                }
+            }
+
             $bf->UpdateSQL(
                 $GLOBALS['course_closure_table'],
                 $data,
                 'id = :id',
                 [':id' => $view_course_closure_id]
             );
+
+            // Mark new enrollment course as closed in enrollment table
+            $bf->UpdateSQL(
+                $enrollment_table,
+                ['course_closed' => 1],
+                "$enrollment_id_field = :enroll_id",
+                [':enroll_id' => $student_id]
+            );
+
             echo json_encode(['status' => 'success', 'message' => 'Course closure updated successfully']);
         }
         exit;
@@ -151,7 +179,9 @@ if (isset($_REQUEST['view_course_closure_id'])) {
         if (!empty($closure['course_type'])) {
             $course_type = $closure['course_type'];
         }
-        if (!empty($closure['student_id'])) {
+        if (!empty($closure['enrollment_id'])) {
+            $student_id = $closure['enrollment_id'];
+        } elseif (!empty($closure['student_id'])) {
             $student_id = $bf->encode_decode('decrypt', $closure['student_id']);
         }
         if (!empty($closure['certificate_got'])) {
@@ -178,29 +208,18 @@ if (isset($_REQUEST['view_course_closure_id'])) {
 $training_students = $bf->getTableRecords($GLOBALS['enrollment_table'], 'deleted', 0);
 $internship_students = $bf->getTableRecords($GLOBALS['enrollment_internship_table'], 'deleted', 0);
 
-// Get list of already closed students
-$closed_closures = $bf->getTableRecords($GLOBALS['course_closure_table'], 'deleted', 0);
-$closed_student_ids = [];
-foreach ($closed_closures as $closure) {
-    $closed_student_ids[] = $closure['student_id'];
-}
-
-// Filter out already closed students (unless it's the current edit record)
+// Filter out already closed enrollments (unless it's the current edit record)
 $training_students_filtered = [];
 $internship_students_filtered = [];
 
 foreach ($training_students as $row) {
-    $sid = $bf->encode_decode('decrypt', $row['student_id']);
-    // Include if not closed OR if it's the student being edited
-    if (!in_array($sid, $closed_student_ids) || $sid === $student_id) {
+    if ($row['course_closed'] != 1 || $row['enrollment_id'] === $student_id) {
         $training_students_filtered[] = $row;
     }
 }
 
 foreach ($internship_students as $row) {
-    $sid = $bf->encode_decode('decrypt', $row['student_id']);
-    // Include if not closed OR if it's the student being edited
-    if (!in_array($sid, $closed_student_ids) || $sid === $student_id) {
+    if ($row['course_closed'] != 1 || $row['enrollment_internship_id'] === $student_id) {
         $internship_students_filtered[] = $row;
     }
 }
@@ -211,10 +230,10 @@ $student_details_js = [
 ];
 
 foreach ($training_students_filtered as $row) {
-    $sid = $bf->encode_decode('decrypt', $row['student_id']);
+    $enrollment_key = $row['enrollment_id'];
     $course_name = $bf->getTableColumnValue($GLOBALS['course_table'], 'course_id', $row['course_id'], 'course_name');
     $trainer_name = $bf->getTableColumnValue($GLOBALS['staff_table'], 'staff_id', $row['staff_id'], 'staff_name');
-    $student_details_js['training'][$sid] = [
+    $student_details_js['training'][$enrollment_key] = [
         'student_name' => $row['student_name'] ?? '',
         'course_name' => $course_name ?? '',
         'trainer_name' => $trainer_name ?? '',
@@ -223,10 +242,10 @@ foreach ($training_students_filtered as $row) {
 }
 
 foreach ($internship_students_filtered as $row) {
-    $sid = $bf->encode_decode('decrypt', $row['student_id']);
+    $enrollment_key = $row['enrollment_internship_id'];
     $course_name = $bf->getTableColumnValue($GLOBALS['course_table'], 'course_id', $row['course_id'], 'course_name');
     $trainer_name = $bf->getTableColumnValue($GLOBALS['staff_table'], 'staff_id', $row['staff_id'], 'staff_name');
-    $student_details_js['internship'][$sid] = [
+    $student_details_js['internship'][$enrollment_key] = [
         'student_name' => $row['student_name'] ?? '',
         'course_name' => $course_name ?? '',
         'trainer_name' => $trainer_name ?? '',
@@ -366,15 +385,26 @@ foreach ($internship_students_filtered as $row) {
     </div>
 
     <script>
-        const studentLists = <?php echo json_encode([ 'training' => array_map(function($row) use ($bf) {
+        <?php
+        $courses = [];
+        $course_records = $bf->getTableRecords($GLOBALS['course_table'], 'deleted', 0);
+        if (!empty($course_records)) {
+            foreach ($course_records as $c) {
+                $courses[$c['course_id']] = $c['course_name'];
+            }
+        }
+        ?>
+        const studentLists = <?php echo json_encode([ 'training' => array_map(function($row) use ($bf, $courses) {
+            $cname = $courses[$row['course_id']] ?? '';
             return [
-                'id' => $bf->encode_decode('decrypt', $row['student_id']),
-                'label' => $bf->encode_decode('decrypt', $row['student_id']) . ' - ' . $row['student_name']
+                'id' => $row['enrollment_id'],
+                'label' => $bf->encode_decode('decrypt', $row['enrollment_id']) . ' - ' . $row['student_name'] . ' - ' . $cname
             ];
-        }, $training_students_filtered), 'internship' => array_map(function($row) use ($bf) {
+        }, $training_students_filtered), 'internship' => array_map(function($row) use ($bf, $courses) {
+            $cname = $courses[$row['course_id']] ?? '';
             return [
-                'id' => $bf->encode_decode('decrypt', $row['student_id']),
-                'label' => $bf->encode_decode('decrypt', $row['student_id']) . ' - ' . $row['student_name']
+                'id' => $row['enrollment_internship_id'],
+                'label' => $bf->encode_decode('decrypt', $row['enrollment_internship_id']) . ' - ' . $row['student_name'] . ' - ' . $cname
             ];
         }, $internship_students_filtered) ]); ?>;
 
@@ -555,6 +585,27 @@ if ($action == 'list') {
 
 if (isset($action) && ($action == 'delete')) {
     $id = $bf->sanitize($_POST['id'] ?? '');
+    
+    // Mark the course as open again in the enrollment table before deleting the closure
+    $closure_rec = $bf->getTableRecords($GLOBALS['course_closure_table'], 'id', $id);
+    if (!empty($closure_rec)) {
+        $closure = $closure_rec[0];
+        $course_type = $closure['course_type'];
+        $enrollment_id = $closure['enrollment_id'];
+        
+        $enrollment_table = $course_type === 'internship' ? $GLOBALS['enrollment_internship_table'] : $GLOBALS['enrollment_table'];
+        $enrollment_id_field = $course_type === 'internship' ? 'enrollment_internship_id' : 'enrollment_id';
+        
+        if (!empty($enrollment_id)) {
+            $bf->UpdateSQL(
+                $enrollment_table,
+                ['course_closed' => 2],
+                "$enrollment_id_field = :enroll_id",
+                [':enroll_id' => $enrollment_id]
+            );
+        }
+    }
+
     $data = ['deleted' => 1, 'updated_date_time' => $GLOBALS['create_date_time_label']];
     $bf->UpdateSQL($GLOBALS['course_closure_table'], $data, 'id = :id', [':id' => $id]);
     echo "Success";

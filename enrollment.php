@@ -1,5 +1,4 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 $from_page = 'enrollment';
 ?>
 <!DOCTYPE html>
@@ -7,7 +6,7 @@ $from_page = 'enrollment';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enrollment Management - Training Center</title>
+    <title>Enrollment Management - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -23,7 +22,9 @@ $from_page = 'enrollment';
         <div class="module-section">
             <div class="section-title">
                 Active Training Enrollments
-                <button class="btn-add" onclick="ShowPage('enrollment', '')">Add New Enrollment</button>
+                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'enrollment', PERMISSION_ADD)): ?>
+                    <button class="btn-add" onclick="ShowPage('enrollment', '')">Add New Enrollment</button>
+                <?php endif; ?>
             </div>
 
             <div class="list-controls">
@@ -51,10 +52,50 @@ $from_page = 'enrollment';
     <div class="main-content new_content" style="display: none;">
     </div>
 
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="modal-content" style="background: white; width: 90%; max-width: 800px; border-radius: 1rem; max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;">
+            <div id="paymentModalBody">
+                <p style="text-align:center;">Loading Payment Screen...</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         $(document).ready(function() {
-            loadData('enrollment');
+            <?php if (isset($_SESSION['from_enquiry'])): ?>
+                ShowPage('enrollment', '');
+            <?php else: ?>
+                loadData('enrollment');
+            <?php endif; ?>
         });
+
+        function openPaymentModal(enrollment_id, paid_amount, course_type, student_id) {
+            $('#paymentModal').css('display', 'flex');
+            $('#paymentModalBody').html('<p style="text-align:center; padding: 2rem;">Loading Payment Screen...</p>');
+            
+            $.ajax({
+                url: 'receipt_action.php',
+                type: 'POST',
+                data: {
+                    action: 'get_payment_modal',
+                    enrollment_id: enrollment_id,
+                    paid_amount: paid_amount,
+                    course_type: course_type,
+                    student_id: student_id
+                },
+                success: function(res) {
+                    $('#paymentModalBody').html(res);
+                }
+            });
+        }
+
+        function closePaymentModal() {
+            $('#paymentModal').hide();
+            $('.new_content').hide().html('');
+            $('.update_content').show();
+            loadData('enrollment');
+        }
     </script>
     <script src="main/js/script.js"></script>
     <script src="main/js/keyboard_control.js"></script>

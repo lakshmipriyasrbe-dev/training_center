@@ -12,6 +12,10 @@
             }
         }
 
+        public function getCompanyId() {
+            return $_SESSION['company_id'] ?? null;
+        }
+
         public function sanitize($data) {
             if (is_array($data)) {
                 foreach ($data as $key => $value) {
@@ -29,6 +33,10 @@
             $last_insert_id = "";
 
             if (!empty($data)) {
+                $company_id = $this->getCompanyId();
+                if ($company_id && !isset($data['company_id']) && $table !== $GLOBALS['company_table'] && $table !== $GLOBALS['role_table'] && $table !== $GLOBALS['user_table']) {
+                    $data['company_id'] = $company_id;
+                }
                 $columns = array_keys($data);
                 $placeholders = [];
                 $params = [];
@@ -81,6 +89,16 @@
                 $params[":upd_$column"] = $value;
             }
             
+            $company_id = $this->getCompanyId();
+            if ($company_id && $table !== $GLOBALS['company_table'] && $table !== $GLOBALS['role_table'] && $table !== $GLOBALS['user_table']) {
+                if (!empty($where_clause)) {
+                    $where_clause = "($where_clause) AND company_id = :comp_company_id";
+                } else {
+                    $where_clause = "company_id = :comp_company_id";
+                }
+                $where_params[':comp_company_id'] = $company_id;
+            }
+
             $sql = "UPDATE $table SET " . implode(", ", $set_parts) . " WHERE $where_clause";
             // echo $sql; // For debugging
             // print_r($params); // For debugging
@@ -147,7 +165,9 @@
                 $GLOBALS['enrollment_internship_table'] => "ENI",
                 $GLOBALS['attendance_table'] => "ATT",
                 $GLOBALS['payment_table'] => "REC",
-                $GLOBALS['payroll_table'] => "PR"
+                $GLOBALS['payroll_table'] => "PR",
+                $GLOBALS['student_attendance_table'] => "SATT",
+                $GLOBALS['event_table'] => "EVT"
             ];
 
             $prefix = $prefixes[$table] ?? "";
@@ -213,15 +233,50 @@
             $sql = "SELECT * FROM $table WHERE deleted = :deleted";
             $params = [":deleted" => 0];
             
+            $company_id = $this->getCompanyId();
+            if ($company_id && $table !== $GLOBALS['company_table'] && $table !== $GLOBALS['role_table'] && $table !== $GLOBALS['user_table'] && $table !== $GLOBALS['course_table']) {
+                $sql .= " AND company_id = :comp_company_id";
+                $params[':comp_company_id'] = $company_id;
+            }
+
+            if ($table === $GLOBALS['user_table']) {
+                $sql .= " AND LOWER(role) != 'admin'";
+            }
+            if ($table === $GLOBALS['role_table']) {
+                $sql .= " AND LOWER(role_name) != 'admin'";
+            }
+            
             if (!empty($field)) {
                 $sql .= " AND $field = :$field";
                 $params[":$field"] = $value;
             }
             
             $sql .= " ORDER BY $orderby";
+            // echo $sql;
+            // print_r($params);
             $stmt = $con->prepare($sql);
             $stmt->execute($params);
             return $stmt->fetchAll();
+        }
+
+        public function isRecordLinked($relations) {
+            foreach ($relations as $rel) {
+                $table = $rel['table'];
+                $column = $rel['column'];
+                $value = $rel['value'];
+                $label = $rel['label'] ?? $table;
+
+                $sql = "SELECT COUNT(*) FROM {$table} WHERE {$column} = :val AND deleted = 0";
+                $params = [':val' => $value];
+
+                $stmt = $this->con->prepare($sql);
+                $stmt->execute($params);
+                $count = $stmt->fetchColumn();
+                if ($count > 0) {
+                    return $label;
+                }
+            }
+            return false;
         }
 
         public function getTableColumnValue($table, $field, $value, $return_field) {
@@ -231,16 +286,25 @@
             $sql = "SELECT {$return_field}
                     FROM {$table}
                     WHERE {$field} = :value
-                    AND deleted = :deleted
-                    LIMIT 1";
+                    AND deleted = :deleted";
 
             $params = array(
                 ':value' => $value,
                 ':deleted' => 0
             );
 
+            $company_id = $this->getCompanyId();
+            if ($company_id && $table !== $GLOBALS['company_table'] && $table !== $GLOBALS['role_table'] && $table !== $GLOBALS['user_table']) {
+                $sql .= " AND company_id = :comp_company_id";
+                $params[':comp_company_id'] = $company_id;
+            }
+            
+            $sql .= " LIMIT 1";
+
             $stmt = $con->prepare($sql);
             $stmt->execute($params);
+
+            // echo $this->debugQuery($sql, $params);
 
             $result = $stmt->fetch();
 
@@ -437,6 +501,12 @@
             $where = "deleted = 0";
             $params = [];
             
+            $company_id = $this->getCompanyId();
+            if ($company_id) {
+                $where .= " AND company_id = :comp_company_id";
+                $params[':comp_company_id'] = $company_id;
+            }
+            
             if (!empty($search)) {
                 $where .= " AND (staff_name LIKE :search OR staff_number LIKE :search OR username LIKE :search)";
                 $params[':search'] = "%$search%";
@@ -449,6 +519,24 @@
         public function getTableList($table_name, $search_cols = [], $start = 0, $limit = 10, $search = '') {
             $where = "deleted = 0";
             $params = [];
+            
+            $company_id = $this->getCompanyId();
+            if ($company_id && $table_name !== $GLOBALS['company_table'] && $table_name !== $GLOBALS['role_table'] && $table_name !== $GLOBALS['user_table'] && $table_name !== $GLOBALS['course_table']) {
+                $where .= " AND company_id = :comp_company_id";
+                $params[':comp_company_id'] = $company_id;
+            }
+
+            if ($table_name === $GLOBALS['user_table']) {
+                $where .= " AND LOWER(role) != 'admin' AND LOWER(role) != 'director'";
+            }
+            if ($table_name === $GLOBALS['role_table']) {
+                $where .= " AND LOWER(role_name) != 'admin'";
+            }
+
+            // if($table_name == $GLOBALS['user_table']) {
+            //     $where .= "AND role != :excluded_role";
+            //     $params[':excluded_role'] = 'student';
+            // }
             
             if (!empty($search) && !empty($search_cols)) {
                 $search_parts = [];
@@ -467,6 +555,12 @@
             $where = "deleted = 0";
             $params = [];
             
+            $company_id = $this->getCompanyId();
+            if ($company_id) {
+                $where .= " AND company_id = :comp_company_id";
+                $params[':comp_company_id'] = $company_id;
+            }
+            
             if (!empty($search)) {
                 $where .= " AND (staff_name LIKE :search OR staff_number LIKE :search OR attendance_date LIKE :search)";
                 $params[':search'] = "%$search%";
@@ -477,9 +571,44 @@
             return $this->getPaginatedResults($query, $params, $start, $limit);
         }
 
+        public function getStudentAttendanceList($start = 0, $limit = 10, $search = '', $staff_id = '') {
+            $where = "deleted = 0";
+            $params = [];
+            
+            $company_id = $this->getCompanyId();
+            if ($company_id) {
+                $where .= " AND company_id = :comp_company_id";
+                $params[':comp_company_id'] = $company_id;
+            }
+
+            // if($_SESSION['role_id'] == 'cFlxWHg1N2RYSzg5OEczMGFSTmNvaFJjU2tQdEJlZVJoR1ZLL3ZYZitzUT0=') {
+            //     if (!empty($staff_id)) {
+            //         $where .= " AND staff_id = :staff_id";
+            //         $params[':staff_id'] = $staff_id;
+            //     }
+            // }            
+            
+            
+            if (!empty($search)) {
+                $where .= " AND (attendance_date LIKE :search OR attendance_number LIKE :search)";
+                $params[':search'] = "%$search%";
+            }
+            
+            $query = "SELECT * FROM " . $GLOBALS['student_attendance_table'] . " WHERE $where ORDER BY attendance_date DESC, id ASC";
+
+            // echo $this->debugQuery($query, $params);
+            return $this->getPaginatedResults($query, $params, $start, $limit);
+        }
+
         public function getEnrollmentList($table_name, $start = 0, $limit = 10, $search = '') {
             $where = "deleted = 0";
             $params = [];
+            
+            $company_id = $this->getCompanyId();
+            if ($company_id && $table_name !== $GLOBALS['company_table']) {
+                $where .= " AND company_id = :comp_company_id";
+                $params[':comp_company_id'] = $company_id;
+            }
             
             if (!empty($search)) {
                 $where .= " AND (student_name LIKE :search OR student_id LIKE :search OR mobile_number LIKE :search)";
@@ -488,6 +617,41 @@
             
             $query = "SELECT * FROM $table_name WHERE $where ORDER BY id DESC";
             return $this->getPaginatedResults($query, $params, $start, $limit);
+        }
+
+        public function checkCompanyAlreadyExists($company_name, $branch) {
+
+            $where = "";
+            $query = "";
+            $prev_id = "";
+            $params = [];
+
+            if(!empty($company_name) && !empty($branch)) {
+
+                $where = "LOWER(company_name) = :company_name 
+                        AND LOWER(branch) = :branch 
+                        AND ";
+
+                $params['company_name'] = $company_name;
+                $params['branch'] = $branch;
+            }
+
+            $query = "SELECT company_id 
+                    FROM ".$GLOBALS['company_table']." 
+                    WHERE ".$where." deleted = :deleted";
+
+            $params['deleted'] = 0;
+
+            $result = $this->getQueryRecords($query, $params);
+
+            if(!empty($result)) {
+
+                foreach($result as $data) {
+                    $prev_id = $data['company_id'];
+                }
+            }
+
+            return $prev_id;
         }
     }
 ?>

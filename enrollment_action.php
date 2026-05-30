@@ -1,6 +1,36 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
-$action = $_POST['action'] ?? '';
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
+
+if ($action === 'search_students') {
+    $search = $bf->sanitize($_POST['search'] ?? '');
+    $query = "SELECT * FROM " . $GLOBALS['enrollment_table'] . " WHERE student_name LIKE :search AND deleted = 0 AND company_id = :comp_id ORDER BY id DESC";
+    $params = [
+        ':search' => '%' . $search . '%',
+        ':comp_id' => $_SESSION['company_id']
+    ];
+    $records = $bf->getQueryRecords($query, $params);
+    $results = [];
+    $seen = [];
+    foreach ($records as $r) {
+        $dec_id = $bf->encode_decode('decrypt', $r['student_id']);
+        if (!in_array($dec_id, $seen)) {
+            $seen[] = $dec_id;
+            $results[] = [
+                'student_id' => $dec_id,
+                'student_name' => $r['student_name'],
+                'father_spouse_name' => $r['father_spouse_name'],
+                'address' => $r['address'],
+                'mobile_number' => $r['mobile_number'],
+                'parent_contact_no' => $r['parent_contact_no'],
+                'dob' => $r['dob'],
+                'blood_group' => $r['blood_group']
+            ];
+        }
+    }
+    header('Content-Type: application/json');
+    echo json_encode($results);
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
     $student_id = $bf->sanitize($_POST['student_id'] ?? '');
@@ -47,6 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
     $res = $valid->common_validation($fees_amount, 'Fees Amount', 'text');
     if ($res) $errors['fees_amount'] = $res;
 
+    $res = $valid->valid_date($dob, 'Date Of Birth', 'text');
+    if ($res) $errors['dob'] = $res;
+
     if(!empty($lead_source)) {
         $res = $valid->common_validation($lead_source, 'Lead Source', 'select');
         if ($res) $errors['lead_source'] = $res;
@@ -74,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
     }
 
     if (empty($errors)) {
+        $plain_student_id = $bf->sanitize($_POST['student_id'] ?? '');
         if (!empty($student_id)) {
             $student_id = $bf->encode_decode('encrypt', $student_id);
         }
@@ -108,22 +142,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
 
         header('Content-Type: application/json');
         if (empty($view_enrollment_id)) {
+            // Check for duplicate student-course enrollment
+            $check_dup = $bf->getQueryRecords(
+                "SELECT id FROM " . $GLOBALS['enrollment_table'] . " WHERE student_id = :student_id AND course_id = :course_id AND deleted = 0",
+                [':student_id' => $student_id, ':course_id' => $course_id]
+            );
+            if (!empty($check_dup)) {
+                echo json_encode([
+                    'status' => 'error',
+                    'errors' => ['student_name' => 'This student is already enrolled in this course.'],
+                    'message' => 'This student is already enrolled in this course.'
+                ]);
+                exit;
+            }
+
             $data['created_date_time'] = date('Y-m-d H:i:s');
-            $bf->InsertSQL(
+            
+            // Custom enrollment number: ENT003/26-27
+            $current_year_two = date('y');
+            $next_year_two = str_pad((intval($current_year_two) + 1) % 100, 2, '0', STR_PAD_LEFT);
+            $year_suffix = "/" . $current_year_two . "-" . $next_year_two;
+            
+            $max_query = $bf->getQueryRecords("SELECT MAX(id) as max_id FROM " . $GLOBALS['enrollment_table']);
+            $next_num = (!empty($max_query[0]['max_id']) ? intval($max_query[0]['max_id']) : 0) + 1;
+            $seq_str = str_pad($next_num, 3, '0', STR_PAD_LEFT);
+            $data['enrollment_number'] = "ENT" . $seq_str . $year_suffix;
+            
+            // Set student username and password directly in the enrollment table
+            if (!empty($plain_student_id)) {
+                $data['username'] = $plain_student_id;
+                
+                $existing_pwd = '';
+                $check_enr = $bf->getQueryRecords("SELECT password FROM " . $GLOBALS['enrollment_table'] . " WHERE username = :username AND deleted = 0 LIMIT 1", [':username' => $plain_student_id]);
+                if (!empty($check_enr)) {
+                    $existing_pwd = $check_enr[0]['password'];
+                } else {
+                    $check_int = $bf->getQueryRecords("SELECT password FROM " . $GLOBALS['enrollment_internship_table'] . " WHERE username = :username AND deleted = 0 LIMIT 1", [':username' => $plain_student_id]);
+                    if (!empty($check_int)) {
+                        $existing_pwd = $check_int[0]['password'];
+                    }
+                }
+                
+                if (!empty($existing_pwd)) {
+                    $data['password'] = $existing_pwd;
+                } else {
+                    $dob_plain = !empty($dob) ? date('dmY', strtotime($dob)) : $plain_student_id;
+                    $data['password'] = $bf->encode_decode('encrypt', $dob_plain);
+                }
+            }
+
+            $new_id = $bf->InsertSQL(
                 $GLOBALS['enrollment_table'], 
                 $data, 
                 'enrollment_id', 
                 '', 
                 'ADD ENROLLMENT'
             );
-            echo json_encode(['status' => 'success', 'message' => 'Enrollment added successfully']);
+
+            $from_enquiry = $bf->sanitize($_POST['from_enquiry'] ?? '');
+            if (!empty($from_enquiry)) {
+                $enrollment_record = $bf->getTableRecords($GLOBALS['enrollment_table'], 'id', $new_id);
+                $generated_enrollment_id = !empty($enrollment_record) ? $enrollment_record[0]['enrollment_id'] : '';
+                $bf->UpdateSQL($GLOBALS['course_enquiry_table'], [
+                    'converted_type' => 'enrollment',
+                    'converted_id' => $generated_enrollment_id
+                ], "enquiry_id = :enq_id", [':enq_id' => $from_enquiry]);
+            }
+            
+            if (floatval($paid_amount) > 0) {
+                // Fetch the generated enrollment_id from the inserted record
+                $enrollment_record = $bf->getTableRecords($GLOBALS['enrollment_table'], 'id', $new_id);
+                $generated_enrollment_id = !empty($enrollment_record) ? $enrollment_record[0]['enrollment_id'] : '';
+                
+                echo json_encode([
+                    'status' => 'success_with_payment', 
+                    'enrollment_id' => $generated_enrollment_id, 
+                    'paid_amount' => $paid_amount, 
+                    'course_type' => 'training',
+                    'student_id' => $student_id,
+                    'message' => 'Enrollment added. Please complete the receipt.'
+                ]);
+            } else {
+                echo json_encode(['status' => 'success', 'message' => 'Enrollment added successfully']);
+            }
         } else {
+            if (!empty($plain_student_id)) {
+                $data['username'] = $plain_student_id;
+            }
+
             $bf->UpdateSQL(
                 $GLOBALS['enrollment_table'], 
                 $data, 
                 "enrollment_id = :id", 
                 [':id' => $view_enrollment_id]
             );
+            
             echo json_encode(['status' => 'success', 'message' => 'Enrollment updated successfully']);
         }
         exit;
@@ -135,6 +248,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
 }
 
    $student_id = ""; $student_name = ""; $father_spouse_name = ""; $address = ""; $mobile_number = ""; $parent_contact_no = ""; $course_id = ""; $duration = ""; $from_time = ""; $to_time = ""; $staff_id = ""; $fees_type = ""; $fees_amount = ""; $paid_amount = "0"; $balance_amount = ""; $dob = ""; $doj = ""; $blood_group = ""; $candidate_photo = ""; $lead_source = ""; $referred_staff_id = "";
+
+   $from_enquiry_id = $_SESSION['from_enquiry'] ?? '';
+   if (!empty($from_enquiry_id)) { unset($_SESSION['from_enquiry']);
+       $enquiry_records = $bf->getQueryRecords("SELECT * FROM " . $GLOBALS['course_enquiry_table'] . " WHERE enquiry_id = :enq_id AND deleted = 0 LIMIT 1", [':enq_id' => $from_enquiry_id]);
+       if (!empty($enquiry_records)) {
+           $enquiry = $enquiry_records[0];
+           $student_name = $enquiry['name'];
+           $mobile_number = $enquiry['mobile_number'];
+           $address = $enquiry['address'];
+           $course_id = $enquiry['course_id'];
+           if (!empty($course_id)) {
+               $course_info = $bf->getTableRecords($GLOBALS['course_table'], 'course_id', $course_id);
+               if (!empty($course_info)) {
+                   $fees_amount = $course_info[0]['course_fee'];
+                   $duration = $course_info[0]['course_duration'];
+               }
+           }
+       }
+   }
 
     if(isset($_REQUEST['view_enrollment_id'])) {
 
@@ -234,7 +366,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
         }
     
         if (empty($view_enrollment_id)) {
-            $student_id = $bf->automate_number($GLOBALS['enrollment_table'],'student_id', '', '');
+            $month_num = intval(date('n'));
+            $month_char = chr(64 + $month_num);
+            $prefix = "WG" . $month_char . date('y');
+            
+            $records = $bf->getQueryRecords("SELECT student_id FROM " . $GLOBALS['enrollment_table'] . " WHERE deleted = 0");
+            $max_seq = 0;
+            foreach ($records as $r) {
+                if (!empty($r['student_id'])) {
+                    $dec_id = $bf->encode_decode('decrypt', $r['student_id']);
+                    if (strpos($dec_id, $prefix) === 0) {
+                        $seq_part = intval(substr($dec_id, strlen($prefix)));
+                        if ($seq_part > $max_seq) {
+                            $max_seq = $seq_part;
+                        }
+                    }
+                }
+            }
+            $next_seq = $max_seq + 1;
+            $student_id = $prefix . str_pad($next_seq, 3, '0', STR_PAD_LEFT);
         }
         ?>
 
@@ -257,6 +407,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
             >
 
                 <input type="hidden" name="view_enrollment_id" value="<?php echo $view_enrollment_id; ?>">
+                <input type="hidden" name="from_enquiry" value="<?php echo htmlspecialchars($from_enquiry_id); ?>">
 
                 <div class="form-row">
 
@@ -272,17 +423,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
                         >
                     </div>
 
-                    <div class="form-group col-4">
+                    <div class="form-group col-4" style="position: relative;">
+                        <style>
+                            .suggestions-dropdown {
+                                position: absolute;
+                                top: 100%;
+                                left: 0;
+                                right: 0;
+                                background: #ffffff;
+                                border: 1px solid var(--border);
+                                border-radius: 0.5rem;
+                                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                                z-index: 1000;
+                                max-height: 250px;
+                                overflow-y: auto;
+                                margin-top: 0.25rem;
+                                padding: 0.5rem 0;
+                            }
+                            .suggestion-item {
+                                padding: 0.75rem 1rem;
+                                cursor: pointer;
+                                font-size: 0.85rem;
+                                color: var(--text);
+                                transition: all 0.2s;
+                                border-bottom: 1px solid #f1f5f9;
+                            }
+                            .suggestion-item:last-child {
+                                border-bottom: none;
+                            }
+                            .suggestion-item:hover {
+                                background: #f8fafc;
+                                color: var(--primary);
+                            }
+                            .suggestion-item .student-details {
+                                font-size: 0.75rem;
+                                color: var(--text-muted);
+                                margin-top: 0.25rem;
+                                display: flex;
+                                gap: 0.75rem;
+                            }
+                        </style>
                         <label>Student Name *</label>
 
                         <input
                             type="text"
                             name="student_name"
+                            id="student_name_input"
                             class="form-input"
                             value="<?php echo $student_name; ?>"
                             onkeypress="return allowLettersOnly(event)"
-                            
+                            autocomplete="off"
                         >
+                        <div id="student_suggestions" class="suggestions-dropdown" style="display: none;"></div>
 
                         <span id="error-student_name" class="error-msg"></span>
                     </div>
@@ -580,7 +772,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
                     </div>
 
                     <div class="form-group col-4">
-                        <label>Date of Birth</label>
+                        <label>Date of Birth *</label>
 
                         <input
                             type="date"
@@ -775,6 +967,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_name'])) {
                             }
                         });
                     }
+
+                    // Autocomplete / suggestions for student name
+                    (function() {
+                        const nameInput = document.getElementById('student_name_input');
+                        const suggestionsDiv = document.getElementById('student_suggestions');
+                        const original_student_id = document.querySelector('input[name="student_id"]').value;
+                        
+                        if (nameInput && suggestionsDiv) {
+                            nameInput.addEventListener('input', function() {
+                                const query = this.value.trim();
+                                if (query.length < 2) {
+                                    suggestionsDiv.style.display = 'none';
+                                    suggestionsDiv.innerHTML = '';
+                                    
+                                    if (query === '') {
+                                        // Reset fields
+                                        document.querySelector('input[name="student_id"]').value = original_student_id;
+                                        document.querySelector('input[name="father_spouse_name"]').value = '';
+                                        document.querySelector('textarea[name="address"]').value = '';
+                                        document.querySelector('input[name="mobile_number"]').value = '';
+                                        document.querySelector('input[name="parent_contact_no"]').value = '';
+                                        document.querySelector('input[name="dob"]').value = '';
+                                        document.querySelector('select[name="blood_group"]').value = '';
+                                    }
+                                    return;
+                                }
+                                
+                                $.ajax({
+                                    url: 'enrollment_action.php',
+                                    type: 'POST',
+                                    data: {
+                                        action: 'search_students',
+                                        search: query
+                                    },
+                                    dataType: 'json',
+                                    success: function(data) {
+                                        if (data && data.length > 0) {
+                                            suggestionsDiv.innerHTML = '';
+                                            suggestionsDiv.style.display = 'block';
+                                            
+                                            data.forEach(function(student) {
+                                                const item = document.createElement('div');
+                                                item.className = 'suggestion-item';
+                                                item.innerHTML = `
+                                                    <div style="font-weight: 600;">${student.student_name}</div>
+                                                    <div class="student-details">
+                                                        <span>ID: ${student.student_id}</span>
+                                                        <span>Phone: ${student.mobile_number}</span>
+                                                    </div>
+                                                `;
+                                                
+                                                item.addEventListener('click', function() {
+                                                    document.querySelector('input[name="student_id"]').value = student.student_id;
+                                                    nameInput.value = student.student_name;
+                                                    document.querySelector('input[name="father_spouse_name"]').value = student.father_spouse_name;
+                                                    document.querySelector('textarea[name="address"]').value = student.address;
+                                                    document.querySelector('input[name="mobile_number"]').value = student.mobile_number;
+                                                    document.querySelector('input[name="parent_contact_no"]').value = student.parent_contact_no || '';
+                                                    document.querySelector('input[name="dob"]').value = student.dob || '';
+                                                    document.querySelector('select[name="blood_group"]').value = student.blood_group || '';
+                                                    document.querySelector('input[name="paid_amount"]').value = '0';
+                                                    calculateBalance();
+                                                    
+                                                    suggestionsDiv.style.display = 'none';
+                                                    suggestionsDiv.innerHTML = '';
+                                                });
+                                                
+                                                suggestionsDiv.appendChild(item);
+                                            });
+                                        } else {
+                                            suggestionsDiv.style.display = 'none';
+                                            suggestionsDiv.innerHTML = '';
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            document.addEventListener('click', function(e) {
+                                if (e.target !== nameInput && e.target !== suggestionsDiv && !suggestionsDiv.contains(e.target)) {
+                                    suggestionsDiv.style.display = 'none';
+                                }
+                            });
+                        }
+                    })();
                 </script>
 
             </form>
@@ -807,6 +1083,7 @@ if ($action == 'list') {
                 <thead>
                     <tr>
                         <th>Sno</th>
+                        <th>Enrollment No</th>
                         <th>Student ID</th>
                         <th>Student Name</th>
                         <th>Mobile Number</th>
@@ -830,6 +1107,11 @@ if ($action == 'list') {
                         <td><?php echo $sno++; ?></td>
                         <td>
                             <span style="color: var(--primary); font-weight: 600;">
+                                <?php echo htmlspecialchars($u['enrollment_number'] ?: 'N/A'); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <span style="color: #64748b; font-weight: 600;">
                                 <?php echo $bf->encode_decode('decrypt', $u['student_id']); ?>
                             </span>
                         </td>
@@ -838,8 +1120,20 @@ if ($action == 'list') {
                         <td><?php echo $course_name; ?></td>
                         <td>
                             <div style="display:flex; gap:0.5rem;">
-                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('enrollment', '<?php echo $u['enrollment_id']; ?>')">Edit</button>
-                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('enrollment', '<?php echo $u['id']; ?>')">Delete</button>
+                                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'enrollment', PERMISSION_EDIT)): ?>
+                                    <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('enrollment', '<?php echo $u['enrollment_id']; ?>')">Edit</button>
+                                <?php endif; ?>
+                                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'enrollment', PERMISSION_DELETE)): 
+                                    $relations = [
+                                        ['table' => $GLOBALS['payment_table'], 'column' => 'enrollment_id', 'value' => $u['enrollment_id'], 'label' => 'Receipt']
+                                    ];
+                                    $linked = $bf->isRecordLinked($relations);
+                                    if ($linked) { ?>
+                                        <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #94a3b8; cursor: not-allowed;" title="Cannot delete: Linked with <?php echo $linked; ?> table" onclick="alert('Cannot delete: this enrollment is linked with <?php echo $linked; ?>. Please delete linked receipts first.')">Delete</button>
+                                    <?php } else { ?>
+                                        <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('enrollment', '<?php echo $u['id']; ?>')">Delete</button>
+                                    <?php }
+                                endif; ?>
                             </div>
                         </td>
                     </tr>
@@ -877,6 +1171,17 @@ if ($action == 'list') {
 
 if (isset($action) &&  ($action == 'delete')) {
     $id = $bf->sanitize($_POST['id'] ?? '');
+    
+    $enrollment_id = $bf->getTableColumnValue($GLOBALS['enrollment_table'], 'id', $id, 'enrollment_id');
+    $relations = [
+        ['table' => $GLOBALS['payment_table'], 'column' => 'enrollment_id', 'value' => $enrollment_id, 'label' => 'Receipt']
+    ];
+    $linked = $bf->isRecordLinked($relations);
+    if ($linked) {
+        echo "Error: Cannot delete enrollment because it is linked with $linked table.";
+        exit;
+    }
+
     $data = ['deleted' => 1, 'updated_date_time' => $GLOBALS['create_date_time_label']];
     $bf->UpdateSQL($GLOBALS['enrollment_table'], $data, "id = :id", [':id' => $id]);
     echo "Success";

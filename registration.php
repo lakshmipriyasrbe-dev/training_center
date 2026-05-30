@@ -9,7 +9,7 @@ $roles = $bf->getTableRecords($GLOBALS['role_table'], 'deleted', 0);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add User - Training Center</title>
+    <title>Add User - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -79,5 +79,6 @@ $roles = $bf->getTableRecords($GLOBALS['role_table'], 'deleted', 0);
             });
         });
     </script>
+    <script src="main/js/script.js"></script>
 </body>
 </html>

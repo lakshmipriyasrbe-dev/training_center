@@ -78,6 +78,12 @@ CREATE TABLE `tc_course_closure` (
   `student_id` mediumtext DEFAULT NULL,
   `student_name` mediumtext DEFAULT NULL,
   `certificate_got` int(11) DEFAULT NULL,
+  `course_closed` int(11) DEFAULT 0,
+  `placed` int(11) DEFAULT NULL,
+  `company_name` mediumtext DEFAULT NULL,
+  `company_address` mediumtext DEFAULT NULL,
+  `designation` mediumtext DEFAULT NULL,
+  `ctc` mediumtext DEFAULT NULL,
   `deleted` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
@@ -120,3 +126,87 @@ CREATE TABLE `tc_payroll` (
   `deleted` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+CREATE TABLE `tc_student_attendance` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  `attendance_number` mediumtext DEFAULT NULL,
+  `attendance_date` date DEFAULT NULL,
+  `staff_id` mediumtext DEFAULT NULL,
+  `student_id` mediumtext DEFAULT NULL,
+  `fn_present` mediumtext DEFAULT NULL,
+  `an_present` mediumtext DEFAULT NULL,
+  `present_code` mediumtext DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- Alter tc_company table to add new fields
+ALTER TABLE `tc_company` ADD COLUMN `gst` mediumtext DEFAULT NULL;
+ALTER TABLE `tc_company` ADD COLUMN `branch` mediumtext DEFAULT NULL;
+ALTER TABLE `tc_company` ADD COLUMN `logo_image` mediumtext DEFAULT NULL;
+ALTER TABLE `tc_company` ADD COLUMN `company_details` longtext DEFAULT NULL;
+
+
+/// 
+
+CREATE TABLE `tc_expense_entry` (
+ `id` int(11) NOT NULL AUTO_INCREMENT,
+ `created_date_time` datetime DEFAULT NULL,
+ `updated_date_time` datetime DEFAULT NULL,
+ `expense_entry_id` mediumtext DEFAULT NULL,
+ `expense_category_id` mediumtext DEFAULT NULL,
+ `expense_entry_date` mediumtext DEFAULT NULL,
+ `payment_mode` mediumtext DEFAULT NULL,
+ `bank` mediumtext DEFAULT NULL,
+ `amount` mediumtext DEFAULT NULL,
+ `total_amount` mediumtext DEFAULT NULL,
+ `attachments` mediumtext DEFAULT NULL,
+ `deleted` int(11) NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`)
+)
+
+-- Add enrollment_id column to tc_payment table (for enrollment-receipt linking)
+ALTER TABLE `tc_payment` ADD COLUMN `enrollment_id` mediumtext DEFAULT NULL;
+
+-- Create course_enquiry table for tracking student course enquiries
+CREATE TABLE `tc_course_enquiry` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `enquiry_id` varchar(255) DEFAULT NULL,
+  `company_id` varchar(255) DEFAULT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `mobile_number` varchar(255) DEFAULT NULL,
+  `degree_completed` varchar(255) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `course_id` varchar(255) DEFAULT NULL,
+  `converted_type` varchar(255) DEFAULT 'none',
+  `converted_id` varchar(255) DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Create tc_event table for Event Management
+CREATE TABLE `tc_event` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `event_id` varchar(255) DEFAULT NULL,
+  `company_id` varchar(255) DEFAULT NULL,
+  `user_id` varchar(255) DEFAULT NULL,
+  `role_id` varchar(255) DEFAULT NULL,
+  `event_date` date DEFAULT NULL,
+  `event_name` varchar(255) DEFAULT NULL,
+  `event_description` text DEFAULT NULL,
+  `images` text DEFAULT NULL,
+  `deleted` int(11) NOT NULL DEFAULT 0,
+  `created_date_time` datetime DEFAULT NULL,
+  `updated_date_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Add enrollment_number column to tc_enrollment and tc_enrollment_internship tables
+ALTER TABLE `tc_enrollment` ADD COLUMN `enrollment_number` varchar(255) DEFAULT NULL AFTER `enrollment_id`;
+ALTER TABLE `tc_enrollment_internship` ADD COLUMN `enrollment_number` varchar(255) DEFAULT NULL AFTER `enrollment_internship_id`;
+
+-- Add event_number column to tc_event table
+ALTER TABLE `tc_event` ADD COLUMN `event_number` varchar(255) DEFAULT NULL AFTER `event_id`;

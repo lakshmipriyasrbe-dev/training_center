@@ -580,3 +580,47 @@ td { padding: 1rem; border-bottom: 1px solid var(--border); color: #858796; font
 .sidebar::-webkit-scrollbar-track {
     background: transparent;
 }
+
+.report-actions{
+    display:flex;
+    gap:12px;
+    margin:1rem 0;
+    flex-wrap:wrap;
+}
+
+.btn-report{
+    border:none;
+    padding:0.75rem 1.2rem;
+    border-radius:10px;
+    font-size:0.9rem;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transition:all 0.25s ease;
+    color:#fff;
+    box-shadow:0 2px 10px rgba(0,0,0,0.08);
+}
+
+.btn-report i{
+    font-size:0.9rem;
+}
+
+.btn-print{
+    background:linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.btn-print:hover{
+    transform:translateY(-2px);
+    box-shadow:0 6px 18px rgba(37,99,235,0.25);
+}
+
+.btn-excel{
+    background:linear-gradient(135deg, #10b981, #059669);
+}
+
+.btn-excel:hover{
+    transform:translateY(-2px);
+    box-shadow:0 6px 18px rgba(5,150,105,0.25);
+}

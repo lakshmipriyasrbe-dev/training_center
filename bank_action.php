@@ -1,5 +1,4 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { exit('Unauthorized'); }
 $action = $_REQUEST['action'] ?? '';
 
 $bank_id = "";
@@ -351,8 +350,12 @@ if ($action == 'list') {
                         <td><?php echo $u['branch']; ?></td>
                         <td>
                             <div style="display:flex; gap:0.5rem;">
-                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('bank', '<?php echo $u['bank_id']; ?>')">Edit</button>
-                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('bank', '<?php echo $u['bank_id']; ?>')">Delete</button>
+                                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'bank', PERMISSION_EDIT)): ?>
+                                    <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('bank', '<?php echo $u['bank_id']; ?>')">Edit</button>
+                                <?php endif; ?>
+                                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'bank', PERMISSION_DELETE)): ?>
+                                    <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('bank', '<?php echo $u['bank_id']; ?>')">Delete</button>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>

@@ -1,12 +1,12 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
+if ($user_role != 'admin' && !$is_management) { header("Location: dashboard.php"); exit(); }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management - Training Center</title>
+    <title>User Management - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -14,7 +14,7 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 <body>
     <?php include 'sidebar.php'; ?>
 
-    <div class="main-content">
+    <div class="main-content update_content">
         <div class="header">
             <h2>User Management</h2>
         </div>
@@ -22,7 +22,7 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
         <div class="module-section">
             <div class="section-title">
                 Active Users
-                <button class="btn-add" onclick="window.location.href='registration.php'">Add New User</button>
+                <button class="btn-add" onclick="ShowPage('user', '')">Add New User</button>
             </div>
             <div class="list-controls">
                 <div class="entries-control">
@@ -46,11 +46,15 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
             </div>
         </div>
     </div>
+    
+    <div class="main-content new_content" style="display: none;"></div>
 
     <script>
         $(document).ready(function() {
             loadData('user');
         });
     </script>
+    <script src="main/js/script.js"></script>
+    <script src="main/js/keyboard_control.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
+if ($user_role != 'admin' && !$is_management) { header("Location: dashboard.php"); exit(); }
 
 // Fetch existing company details
 $company = $bf->getTableRecords($GLOBALS['company_table'], 'deleted', 0);
@@ -10,7 +10,7 @@ $comp = !empty($company) ? $company[0] : null;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Company - Training Center</title>
+    <title>Edit Company - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">

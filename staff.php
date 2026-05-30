@@ -1,5 +1,5 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
+if ($user_role != 'admin' && !$is_management) { header("Location: dashboard.php"); exit(); }
 $from_page = 'staff';
 
 // echo $bf->encode_decode('decrypt', 'Qy9DUkxUbmd3SldjYm9OY1ZTNmRlV0ZHS0JuR3MwbkN0SmF2cEZZQjJJZz0=');
@@ -9,7 +9,7 @@ $from_page = 'staff';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff Management - Training Center</title>
+    <title>Staff Management - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Include Select2 CSS and JS for multiselect if not already included in style.css or here -->

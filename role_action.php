@@ -1,7 +1,7 @@
 <?php
 require_once 'common_file.php';
 
-if ($user_role != 'admin') { exit('Unauthorized'); }
+if ($user_role != 'admin' && !$is_management) { exit('Unauthorized'); }
 
 $action = $_REQUEST['action'] ?? '';
 

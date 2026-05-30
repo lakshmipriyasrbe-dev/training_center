@@ -1,5 +1,4 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 $action = $_REQUEST['action'] ?? '';
 
    $course_id = ""; $course_name = "";  $course_duration = ""; $course_fee = ""; 
@@ -270,8 +269,12 @@ if ($action == 'list') {
                         <td>₹<?php echo number_format($u['course_fee'], 2); ?></td>
                         <td>
                             <div style="display:flex; gap:0.5rem;">
-                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('course', '<?php echo $u['course_id']; ?>')">Edit</button>
-                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('course', '<?php echo $u['course_id']; ?>')">Delete</button>
+                                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'course', PERMISSION_EDIT)): ?>
+                                    <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('course', '<?php echo $u['course_id']; ?>')">Edit</button>
+                                <?php endif; ?>
+                                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'course', PERMISSION_DELETE)): ?>
+                                    <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('course', '<?php echo $u['course_id']; ?>')">Delete</button>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>

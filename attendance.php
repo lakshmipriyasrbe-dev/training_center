@@ -1,5 +1,4 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 $from_page = 'attendance';
 ?>
 <!DOCTYPE html>
@@ -7,7 +6,7 @@ $from_page = 'attendance';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff Attendance - Training Center</title>
+    <title>Staff Attendance - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -23,7 +22,9 @@ $from_page = 'attendance';
         <div class="module-section">
             <div class="section-title">
                 Attendance Log
-                <button class="btn-add" onclick="ShowPage('attendance', '')">Mark Attendance</button>
+                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'attendance', PERMISSION_ADD)): ?>
+                    <button class="btn-add" onclick="ShowPage('attendance', '')">Mark Attendance</button>
+                <?php endif; ?>
             </div>
 
             <div class="list-controls">

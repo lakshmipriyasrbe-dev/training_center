@@ -1,12 +1,11 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payroll Management - Training Center</title>
+    <title>Payroll Management - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -114,7 +113,9 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
         <div class="module-section">
             <div class="section-title">
                 Payroll History
-                <button class="btn-add" onclick="toggleView('form')">Add New Payroll</button>
+                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'payroll', PERMISSION_ADD)): ?>
+                    <button class="btn-add" onclick="toggleView('form')">Add New Payroll</button>
+                <?php endif; ?>
             </div>
             <div class="list-controls">
                 <div class="entries-control">
@@ -226,9 +227,14 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
                         <span class="summary-value" id="summary_net">₹0.00</span>
                     </div>
                 </div>
-                <button class="btn-process" onclick="processPayroll()">
-                    <i class="fas fa-check-circle"></i> Process & Save Payroll
-                </button>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn-process" onclick="processPayroll()">
+                        <i class="fas fa-check-circle"></i> Process & Save Payroll
+                    </button>
+                    <button id="btn_print_monthly" class="btn-process" style="background: #10b981; display: none;" onclick="printMonthlyPayroll()">
+                        <i class="fas fa-print"></i> Print Monthly Report
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -238,14 +244,14 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
             loadData('payroll');
         });
 
-        function viewPayroll(id) {
+        function viewPayroll(staff_id) {
             $('.update_content').hide();
             $('.new_content').show().html('<p style="text-align:center; padding: 2rem;">Loading details...</p>');
             
             $.ajax({
                 url: 'payroll_action.php',
                 type: 'POST',
-                data: { action: 'view', id: id },
+                data: { action: 'view', staff_id: staff_id },
                 success: function(res) {
                     $('.new_content').html(res);
                 }
@@ -305,32 +311,14 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
                 success: function(res) {
                     $('#payroll_grid_body').html(res);
                     calculateGrandTotal();
+                    
+                    if ($('#month_any_paid').val() === '1') {
+                        $('#btn_print_monthly').show();
+                    } else {
+                        $('#btn_print_monthly').hide();
+                    }
                 }
             });
-        }
-
-        function calculateRow(input) {
-            const $row = $(input).closest('tr');
-            const monthlySalary = parseFloat($row.find('.monthly-salary').text());
-            const perDaySalary = parseFloat($row.find('.per-day-salary').text());
-            const incentive = parseFloat($row.find('.incentive-val').val());
-            const enteredLop = parseInt($(input).val()) || 0;
-            
-            let clTaken = 0;
-            let actualLop = 0;
-            if (enteredLop >= 1) {
-                clTaken = 1;
-                actualLop = enteredLop - 1;
-            }
-            
-            const deduction = (perDaySalary * actualLop).toFixed(2);
-            const netSalary = (monthlySalary - parseFloat(deduction) + incentive).toFixed(2);
-            
-            $row.find('.cl-display').text(clTaken);
-            $row.find('.total-deduction').text(deduction);
-            $row.find('.net-salary-display').text(netSalary);
-            
-            calculateGrandTotal();
         }
 
         function calculateGrandTotal() {
@@ -344,13 +332,13 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
 
             $('.payroll-row').each(function() {
                 const $row = $(this);
-                const hasInput = $row.find('.lop-input').length > 0;
+                const isUnprocessed = $row.find('.lop-val').length > 0;
                 
-                if (hasInput) {
+                if (isUnprocessed) {
                     totalMonthly += parseFloat($row.find('.monthly-salary').text()) || 0;
-                    totalCL += parseInt($row.find('.cl-display').text()) || 0;
-                    const lopVal = parseInt($row.find('.lop-input').val()) || 0;
-                    totalLOP += Math.max(0, lopVal - 1);
+                    totalCL += parseFloat($row.find('.cl-display').text()) || 0;
+                    const lopVal = parseFloat($row.find('.lop-val').val()) || 0;
+                    totalLOP += lopVal;
                     totalDeduction += parseFloat($row.find('.total-deduction').text()) || 0;
                     totalIncentive += parseFloat($row.find('.incentive-val').val()) || 0;
                     totalNet += parseFloat($row.find('.net-salary-display').text()) || 0;
@@ -375,17 +363,18 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
             
             $('.payroll-row').each(function() {
                 const $row = $(this);
-                if ($row.find('.lop-input').length > 0) {
-                    const lopVal = parseInt($row.find('.lop-input').val()) || 0;
+                if ($row.find('.lop-val').length > 0) {
+                    const lopVal = parseFloat($row.find('.lop-val').val()) || 0;
                     payrollData.push({
+                        payroll_db_id: $row.data('payroll-db-id') || '',
                         staff_id: $row.data('staff-id'),
                         monthly_salary: parseFloat($row.find('.monthly-salary').text()),
                         per_day_salary: parseFloat($row.find('.per-day-salary').text()),
-                        cl_days: $row.find('.cl-display').text(),
-                        lop_days: Math.max(0, lopVal - 1),
+                        cl_days: parseFloat($row.find('.cl-display').text()),
+                        lop_days: lopVal,
                         total_deduction: parseFloat($row.find('.total-deduction').text()),
                         incentive_amount: parseFloat($row.find('.incentive-val').val()),
-                        total_references: $row.find('.ref-count-val').val(),
+                        total_references: parseInt($row.find('.ref-count-val').val()) || 0,
                         net_salary: parseFloat($row.find('.net-salary-display').text())
                     });
                 }
@@ -425,6 +414,12 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
             });
         }
 
+        function printMonthlyPayroll() {
+            const month = $('#pay_month').val();
+            const year = $('#pay_year').val();
+            window.open(`reports/rpt_payroll_permonth.php?month=${month}&year=${year}`, '_blank');
+        }
+
         function deletePayroll(id) {
             if (confirm('Are you sure you want to delete this payroll record?')) {
                 $.ajax({
@@ -438,6 +433,79 @@ if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
                     }
                 });
             }
+        }
+
+        function recalculateRow($input) {
+            const $row = $input.closest('.payroll-row');
+            const monthlySalary = parseFloat($row.find('.monthly-salary').text()) || 0;
+            const perDaySalary = parseFloat($row.find('.per-day-salary').text()) || 0;
+            const lopVal = parseFloat($input.val()) || 0;
+            const incentiveVal = parseFloat($row.find('.incentive-val').val()) || 0;
+
+            const deduction = Math.round((perDaySalary * lopVal) * 100) / 100;
+            const netSalary = Math.round((monthlySalary - deduction + incentiveVal) * 100) / 100;
+
+            $row.find('.total-deduction').text(deduction.toFixed(2));
+            $row.find('.net-salary-display').text(netSalary.toFixed(2));
+
+            calculateGrandTotal();
+        }
+
+        function editPayroll(id) {
+            $('.update_content').hide();
+            $('.new_content').show().html('<p style="text-align:center; padding: 2rem;">Loading details...</p>');
+            
+            $.ajax({
+                url: 'payroll_action.php',
+                type: 'POST',
+                data: { action: 'edit_view', id: id },
+                success: function(res) {
+                    $('.new_content').html(res);
+                }
+            });
+        }
+
+        function recalculateEditPayroll() {
+            const monthlySalary = parseFloat($('#edit_monthly_salary').val()) || 0;
+            const perDaySalary = parseFloat($('#edit_per_day_salary').val()) || 0;
+            const lopVal = parseFloat($('#edit_lop_days').val()) || 0;
+            const incentiveVal = parseFloat($('#edit_incentive_val').val()) || 0;
+
+            const deduction = Math.round((perDaySalary * lopVal) * 100) / 100;
+            const netSalary = Math.round((monthlySalary - deduction + incentiveVal) * 100) / 100;
+
+            $('#edit_deduction_display').text('- ₹' + deduction.toFixed(2));
+            $('#edit_net_salary_display').text('₹' + netSalary.toFixed(2));
+            
+            $('#submit_deduction').val(deduction);
+            $('#submit_net_salary').val(netSalary);
+        }
+
+        function updatePayroll(id) {
+            const lop_days = parseFloat($('#edit_lop_days').val()) || 0;
+            const deduction = parseFloat($('#submit_deduction').val()) || 0;
+            const net_salary = parseFloat($('#submit_net_salary').val()) || 0;
+
+            $.ajax({
+                url: 'payroll_action.php',
+                type: 'POST',
+                data: {
+                    action: 'update_payroll',
+                    id: id,
+                    lop_days: lop_days,
+                    total_deduction: deduction,
+                    net_salary: net_salary
+                },
+                dataType: 'json',
+                success: function(res) {
+                    if (res.status === 'success') {
+                        alert(res.message);
+                        toggleView('list');
+                    } else {
+                        alert("Error: " + res.message);
+                    }
+                }
+            });
         }
     </script>
     <script src="main/js/script.js"></script>

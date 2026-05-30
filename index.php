@@ -12,7 +12,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Training Center | <?php echo $showLogin ? 'Login' : 'Initialization'; ?></title>
+    <title><?php echo get_company_name(); ?> | <?php echo $showLogin ? 'Login' : 'Initialization'; ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
@@ -131,7 +131,7 @@
 <body>
     <div class="auth-container">
         <div class="header">
-            <h1>Training Center</h1>
+            <h1><?php echo get_company_name(); ?></h1>
             <p><?php echo $showLogin ? 'Sign in to your account' : 'System Setup: Create Admin'; ?></p>
         </div>
 
@@ -186,7 +186,7 @@
                 dataType: 'json',
                 success: function(res) {
                     if (res.status === 'success') {
-                        window.location.href = 'dashboard.php';
+                        window.location.href = res.redirect || 'dashboard.php';
                     } else if (res.errors) {
                         if (res.errors.username) $('#err-login-user').text(res.errors.username).show();
                         if (res.errors.password) $('#err-login-pass').text(res.errors.password).show();
@@ -215,5 +215,6 @@
             });
         });
     </script>
+    <script src="main/js/script.js"></script>
 </body>
 </html>

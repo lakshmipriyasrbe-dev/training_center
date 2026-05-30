@@ -65,12 +65,16 @@ if ($action == 'list') {
                             echo '<td>' . $desc . '</td>';
 
                             if ($first) {
-                                echo '<td rowspan="' . $rowspan . '">
-                                        <div style="display:flex; gap:0.5rem;">
-                                            <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage(\'attendance\', \'' . $att_id . '\')">Edit</button>
-                                            <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord(\'attendance\', \'' . $att_id . '\')">Delete</button>
-                                        </div>
-                                      </td>';
+                                $btn_html = '<div style="display:flex; gap:0.5rem;">';
+                                if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'attendance', PERMISSION_EDIT)) {
+                                    $btn_html .= '<button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage(\'attendance\', \'' . $att_id . '\')">Edit</button>';
+                                }
+                                if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'attendance', PERMISSION_DELETE)) {
+                                    $btn_html .= '<button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord(\'attendance\', \'' . $att_id . '\')">Delete</button>';
+                                }
+                                $btn_html .= '</div>';
+
+                                echo '<td rowspan="' . $rowspan . '">' . $btn_html . '</td>';
                             }
                             echo '</tr>';
                             $first = false;
@@ -174,7 +178,7 @@ if (isset($_POST['view_attendance_id'])) {
                                     $an_checked = ($existing_attendance[$sid]['an_present'] == 'P') ? 'checked' : '';
                                 }
                                 
-                                $role_name = $bf->getTableColumnValue($GLOBALS['role_table'], 'id', $staff['role_id'], 'role_name');
+                                $role_name = $bf->getTableColumnValue($GLOBALS['role_table'], 'role_id', $staff['role_id'], 'role_name');
                             ?>
                             <tr>
                                 <td><?php echo $sno_inner++; ?></td>
@@ -216,7 +220,7 @@ if ($action == 'save') {
 
     // Duplicate check for new entries
     if (empty($old_att_id)) {
-        $check = $bf->getQueryRecords("SELECT id FROM " . $GLOBALS['attendance_table'] . " WHERE attendance_date = :date AND deleted = 0", [':date' => $attendance_date]);
+        $check = $bf->getQueryRecords("SELECT id FROM " . $GLOBALS['attendance_table'] . " WHERE attendance_date = :date AND deleted = 0 AND company_id = :comp_id", [':date' => $attendance_date, ':comp_id' => $_SESSION['company_id']]);
         if (!empty($check)) {
             echo json_encode(['status' => 'error', 'message' => 'Attendance already marked for ' . date('d-m-Y', strtotime($attendance_date)) . '.']);
             exit();
@@ -234,7 +238,7 @@ if ($action == 'save') {
         if(empty($staff_info_list)) continue;
         
         $staff_info = $staff_info_list[0];
-        $role_name = $bf->getTableColumnValue($GLOBALS['role_table'], 'id', $staff_info['role_id'], 'role_name');
+        $role_name = $bf->getTableColumnValue($GLOBALS['role_table'], 'role_id', $staff_info['role_id'], 'role_name');
 
         $data = [
             'updated_date_time' => $GLOBALS['create_date_time_label'],
@@ -248,7 +252,7 @@ if ($action == 'save') {
             'deleted' => 0
         ];
 
-        $existing = $bf->getQueryRecords("SELECT id FROM " . $GLOBALS['attendance_table'] . " WHERE staff_id = :sid AND attendance_date = :date AND deleted = 0", [':sid' => $sid, ':date' => $attendance_date]);
+        $existing = $bf->getQueryRecords("SELECT id FROM " . $GLOBALS['attendance_table'] . " WHERE staff_id = :sid AND attendance_date = :date AND deleted = 0 AND company_id = :comp_id", [':sid' => $sid, ':date' => $attendance_date, ':comp_id' => $_SESSION['company_id']]);
 
         if (!empty($existing)) {
             if (!empty($old_att_id)) $data['attendance_id'] = $old_att_id;

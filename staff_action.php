@@ -1,5 +1,5 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { header("Location: dashboard.php"); exit(); }
+if ($user_role != 'admin' && !$is_management) { header("Location: dashboard.php"); exit(); }
 $action = $_REQUEST['action'] ?? '';
 
 $staff_name = ""; $staff_number = ""; $role_id = ""; $course_id_arr = []; 
@@ -42,7 +42,7 @@ if(isset($_REQUEST['view_staff_id'])) {
                 </div> 
 
                 <div class="form-group col-4">
-                    <label>Staff Number *</label>
+                    <label>Contact Number *</label>
                     <input type="text" name="staff_number" class="form-input" value="<?php echo $staff_number; ?>" onkeypress="return allowNumbersOnly(event)" maxlength="10">
                     <span id="error-staff_number" class="error-msg"></span>
                 </div>
@@ -52,7 +52,7 @@ if(isset($_REQUEST['view_staff_id'])) {
                     <select name="role_id" class="form-input">
                         <option value="">Select Role</option>
                         <?php foreach($roles as $role) { ?>
-                            <option value="<?php echo $role['id']; ?>" <?php echo ($role_id == $role['id']) ? 'selected' : ''; ?>>
+                            <option value="<?php echo $role['role_id']; ?>" <?php echo ($role_id == $role['role_id']) ? 'selected' : ''; ?>>
                                 <?php echo $role['role_name']; ?>
                             </option>
                         <?php } ?>
@@ -63,7 +63,7 @@ if(isset($_REQUEST['view_staff_id'])) {
             
             <div class="form-row">
                 <div class="form-group col-4">
-                    <label>Course *</label>
+                    <label>Course </label>
                     <select name="course_id[]" id="course_id" class="form-input" multiple="multiple" style="width: 100%;">
                         <?php foreach($courses as $course) { ?>
                             <option value="<?php echo $course['course_id']; ?>" <?php echo in_array($course['course_id'], $course_id_arr) ? 'selected' : ''; ?>>
@@ -95,7 +95,7 @@ if(isset($_REQUEST['view_staff_id'])) {
                 </div>
                 
                 <div class="form-group col-4">
-                    <label>Address *</label>
+                    <label>Address </label>
                     <textarea name="address" class="form-input" rows="3"><?php echo $address; ?></textarea>
                     <span id="error-address" class="error-msg"></span>
                 </div>
@@ -139,23 +139,23 @@ if (isset($_POST['staff_name'])) {
     $res = $valid->valid_name($staff_name, 'Staff Name');
     if ($res) $errors['staff_name'] = $res;
 
-    // $res = $valid->valid_mobile($staff_number, 'Staff Number');
-    // if ($res) $errors['staff_number'] = $res;
+    $res = $valid->valid_mobile($staff_number, 'Staff Number');
+    if ($res) $errors['staff_number'] = $res;
 
-    // $res = $valid->common_validation($role_id, 'Role', 'select');
-    // if ($res) $errors['role_id'] = $res;
+    $res = $valid->common_validation($role_id, 'Role', 'select');
+    if ($res) $errors['role_id'] = $res;
     
     // $res = $valid->common_validation($course_id, 'Course', 'select');
     // if ($res) $errors['course_id'] = $res;
 
-    // $res = $valid->common_validation($salary, 'Salary', 'text');
-    // if ($res) $errors['salary'] = $res;
+    $res = $valid->common_validation($salary, 'Salary', 'text');
+    if ($res) $errors['salary'] = $res;
 
-    // $res = $valid->common_validation($staff_username, 'Username', 'text');
-    // if ($res) $errors['username'] = $res;
+    $res = $valid->common_validation($staff_username, 'Username', 'text');
+    if ($res) $errors['username'] = $res;
     
-    // $res = $valid->valid_password($staff_password, 'Password');
-    // if ($res) $errors['password'] = $res;
+    $res = $valid->valid_password($staff_password, 'Password');
+    if ($res) $errors['password'] = $res;
 
     // $res = $valid->common_validation($address, 'Address', 'text');
     // if ($res) $errors['address'] = $res;
@@ -182,11 +182,13 @@ if (isset($_POST['staff_name'])) {
         }
 
         $encrypted_password = $bf->encode_decode('encrypt', $staff_password);
+        $role = $bf->getTableColumnValue($GLOBALS['role_table'], 'role_id', $role_id, 'role_name');
 
         $data = [
             'staff_name' => $staff_name,
             'staff_number' => $staff_number,
             'role_id' => $role_id,
+            'role' => $role,
             'course_id' => $course_id,
             'salary' => $salary,
             'username' => $staff_username,
@@ -195,9 +197,12 @@ if (isset($_POST['staff_name'])) {
             'updated_date_time' => date('Y-m-d H:i:s'),
         ];
 
+        // echo $GLOBALS['bill_company_id']." hi";
+
         // INSERT
         if(empty($edit_staff_id)) {
             $data['created_date_time'] = date('Y-m-d H:i:s');
+            $data['company_id'] = $GLOBALS['bill_company_id'];
             $bf->InsertSQL(
                 $GLOBALS['staff_table'],
                 $data,
@@ -213,6 +218,7 @@ if (isset($_POST['staff_name'])) {
         }
         // UPDATE
         else {
+            $data['company_id'] = $GLOBALS['bill_company_id'];
             $bf->UpdateSQL(
                 $GLOBALS['staff_table'],
                 $data,
@@ -250,7 +256,7 @@ if ($action == 'list') {
     $roles = $bf->getTableRecords($GLOBALS['role_table']);
     $role_map = [];
     foreach($roles as $r) {
-        $role_map[$r['id']] = $r['role_name'];
+        $role_map[$r['role_id']] = $r['role_name'];
     }
 
     ?>

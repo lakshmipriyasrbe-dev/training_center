@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Reports - Training Center</title>
+    <title>Daily Reports - <?php echo get_company_name(); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -18,10 +18,15 @@
         </div>
 
         <div class="module-section">
-            <div class="section-title">
-                Report History
-                <button class="btn-add" onclick="window.location.href='add_report.php'">Submit Today's Report</button>
-            </div>
+
+            <?php 
+            if($user_role != 'admin' && !$is_management) {    ?>
+                <div class="section-title">
+                    Report History
+                    <button class="btn-add" onclick="window.location.href='add_report.php'">Submit Today's Report</button>
+                </div>
+            <?php } ?>
+            
             <div class="list-controls">
                 <div class="entries-control">
                     Show 

@@ -1,5 +1,4 @@
 <?php require_once 'common_file.php'; 
-if ($user_role != 'admin') { exit('Unauthorized'); }
 $action = $_REQUEST['action'] ?? '';
 
 $payment_mode_id = "";
@@ -201,8 +200,12 @@ if ($action == 'list') {
                         <td><?php echo date('d-m-Y H:i', strtotime($u['created_date_time'])); ?></td>
                         <td>
                             <div style="display:flex; gap:0.5rem;">
-                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('payment_mode', '<?php echo $u['payment_mode_id']; ?>')">Edit</button>
-                                <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('payment_mode', '<?php echo $u['payment_mode_id']; ?>')">Delete</button>
+                                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'payment_mode', PERMISSION_EDIT)): ?>
+                                    <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;" onclick="ShowPage('payment_mode', '<?php echo $u['payment_mode_id']; ?>')">Edit</button>
+                                <?php endif; ?>
+                                <?php if (checkPermission($_SESSION['company_id'], $_SESSION['role_id'], 'payment_mode', PERMISSION_DELETE)): ?>
+                                    <button class="btn-add" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: #ef4444;" onclick="deleteRecord('payment_mode', '<?php echo $u['payment_mode_id']; ?>')">Delete</button>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
